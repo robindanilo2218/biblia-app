@@ -73,6 +73,7 @@
                 if (!db) return;
                 
                 let dbMap = new Map();
+                let bookNameMap = new Map();
                 currentData.forEach(x => {
                     let nb = normalizeBookName(x.book);
                     if (x.type === 'verse') dbMap.set("verse_" + nb + "_" + x.reference, x);
@@ -80,12 +81,16 @@
                     else if (x.type === 'book_note') dbMap.set("book_note_" + nb, x);
                     else if (x.type === 'category_note') dbMap.set("category_note_" + x.category, x);
                     else if (x.type === 'testament_note') dbMap.set("testament_note_" + x.testament, x);
+                    
+                    if (x.book) bookNameMap.set(nb, x.book);
                 });
 
                 let toSave = [];
                 study.forEach(s => {
                     const stype = s.type || 'verse';
                     let nb = normalizeBookName(s.book);
+                    if (bookNameMap.has(nb)) s.book = bookNameMap.get(nb);
+
                     let key = stype + "_";
                     if (stype === 'verse') key += nb + "_" + s.reference;
                     else if (stype === 'chapter_note') key += nb + "_" + s.chapter;

@@ -84,8 +84,8 @@
             mainView.innerHTML = '';
 
             const verses = items.filter(x => x.type === 'verse').sort((a, b) => {
-                let idxA = BIBLE_BOOKS.indexOf((a.book || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-                let idxB = BIBLE_BOOKS.indexOf((b.book || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                let idxA = BIBLE_BOOKS.indexOf(normalizeBookName(a.book));
+                let idxB = BIBLE_BOOKS.indexOf(normalizeBookName(b.book));
                 return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1]));
             });
 
@@ -94,8 +94,8 @@
             const notesTop = document.getElementById('notes-top');
             const notes = currentData.filter(x => {
                 if (x.type !== target.type + '_note') return false;
-                if (target.type === 'chapter') return x.book === target.book && x.chapter === target.chapter;
-                if (target.type === 'book') return x.book === target.book;
+                if (target.type === 'chapter') return normalizeBookName(x.book) === normalizeBookName(target.book) && x.chapter === target.chapter;
+                if (target.type === 'book') return normalizeBookName(x.book) === normalizeBookName(target.book);
                 if (target.type === 'category') return x.category === target.category;
                 if (target.type === 'testament') return x.testament === target.testament;
                 return false;

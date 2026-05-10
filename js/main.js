@@ -24,16 +24,24 @@
                 let parsed = parseBible(bData);
                 if (sData) {
                     let bMap = new Map(); 
-                    parsed.forEach(v => bMap.set(normalizeBookName(v.book) + "_" + v.reference, v));
+                    let bookNameMap = new Map();
+                    parsed.forEach(v => {
+                        let nb = normalizeBookName(v.book);
+                        bMap.set(nb + "_" + v.reference, v);
+                        bookNameMap.set(nb, v.book);
+                    });
                     
                     sData.forEach(s => {
+                        let nb = normalizeBookName(s.book);
+                        if (bookNameMap.has(nb)) s.book = bookNameMap.get(nb);
+
                         const stype = s.type || 'verse';
                         if (stype !== 'verse') {
                             s.id = s.id || ("n_" + Math.random());
                             s.base_perspectives = s.perspectives;
                             parsed.push(s);
                         } else {
-                            let ex = bMap.get(normalizeBookName(s.book) + "_" + s.reference);
+                            let ex = bMap.get(nb + "_" + s.reference);
                             if (ex) {
                                 ex.base_perspectives = { ...ex.base_perspectives, ...s.perspectives };
                                 if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
