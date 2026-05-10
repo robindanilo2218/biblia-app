@@ -19,13 +19,20 @@
                 let dVer = document.createElement('details'); dVer.open = true; dVer.innerHTML = `<summary>📖 ${ver}</summary>`;
                 for (let test in tree[ver]) {
                     let dTest = document.createElement('details'); dTest.open = true; dTest.innerHTML = `<summary>📜 ${test}</summary>`;
+                    dTest.querySelector('summary').onclick = (e) => {
+                        e.preventDefault(); dTest.open = !dTest.open;
+                        if (dTest.open) {
+                            let all = []; Object.values(tree[ver][test]).forEach(c => Object.values(c).forEach(b => Object.values(b).forEach(ch => all.push(...ch))));
+                            viewReading(test, all, { type: 'testament', version: ver, testament: test });
+                        }
+                    };
                     for (let cat in tree[ver][test]) {
                         let dCat = document.createElement('details'); dCat.innerHTML = `<summary>📂 ${cat}</summary>`;
                         dCat.querySelector('summary').onclick = (e) => {
                             e.preventDefault(); dCat.open = !dCat.open;
                             if (dCat.open) {
                                 let all = []; Object.values(tree[ver][test][cat]).forEach(b => Object.values(b).forEach(c => all.push(...c)));
-                                viewReading(cat, all, { type: 'category', version: ver, category: cat });
+                                viewReading(cat, all, { type: 'category', version: ver, testament: test, category: cat });
                             }
                         };
                         for (let book in tree[ver][test][cat]) {
@@ -34,7 +41,7 @@
                                 e.preventDefault(); dBook.open = !dBook.open;
                                 if (dBook.open) {
                                     let all = []; Object.values(tree[ver][test][cat][book]).forEach(c => all.push(...c));
-                                    viewReading(book, all, { type: 'book', version: ver, book });
+                                    viewReading(book, all, { type: 'book', version: ver, testament: test, category: cat, book: book });
                                 }
                             };
                             // Lazy render chapters
@@ -42,7 +49,7 @@
                                 if (dBook.open && dBook.children.length === 1) {
                                     Object.keys(tree[ver][test][cat][book]).sort((a, b) => parseInt(a) - parseInt(b)).forEach(c => {
                                         let dCap = document.createElement('div'); dCap.className = 'tree-item'; dCap.textContent = `Capítulo ${c}`;
-                                        dCap.onclick = (ev) => { ev.stopPropagation(); viewReading(`${book} ${c}`, tree[ver][test][cat][book][c], { type: 'chapter', version: ver, book, chapter: c }); };
+                                        dCap.onclick = (ev) => { ev.stopPropagation(); viewReading(`${book} ${c}`, tree[ver][test][cat][book][c], { type: 'chapter', version: ver, testament: test, category: cat, book: book, chapter: c }); };
                                         dBook.appendChild(dCap);
                                     });
                                 }

@@ -14,8 +14,26 @@
                 item.perspectives[name.toLowerCase()] = text;
             } else {
                 const t = editorTarget.type + '_note';
-                item = currentData.find(x => x.type === t && x.book === editorTarget.book && x.chapter === editorTarget.chapter);
-                if (!item) item = { id: `n_${Date.now()}`, type: t, version: editorTarget.version, book: editorTarget.book, chapter: editorTarget.chapter, category: editorTarget.category, perspectives: {} };
+                item = currentData.find(x => {
+                    if (x.type !== t) return false;
+                    if (t === 'chapter_note') return x.book === editorTarget.book && x.chapter === editorTarget.chapter;
+                    if (t === 'book_note') return x.book === editorTarget.book;
+                    if (t === 'category_note') return x.category === editorTarget.category;
+                    if (t === 'testament_note') return x.testament === editorTarget.testament;
+                    return false;
+                });
+                if (!item) {
+                    item = { 
+                        id: `n_${Date.now()}`, 
+                        type: t, 
+                        version: editorTarget.version, 
+                        book: editorTarget.book, 
+                        chapter: editorTarget.chapter, 
+                        category: editorTarget.category, 
+                        testament: editorTarget.testament,
+                        perspectives: {} 
+                    };
+                }
                 item.perspectives[name.toLowerCase()] = text;
             }
             if (!db) return;

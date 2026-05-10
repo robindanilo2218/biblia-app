@@ -1,7 +1,16 @@
 /** UTILIDADES */
+        const normalizeBookName = (name) => {
+            if (!name) return "";
+            let b = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/^san /g, "").replace(/^s\. /g, "");
+            if (b === "salmo") return "salmos";
+            if (b === "cantar de los cantares") return "cantares";
+            if (b === "hechos de los apostoles") return "hechos";
+            return b;
+        };
+
         const getBookInfo = (name) => {
             if (!name) return { testament: "Otros", category: "Otros" };
-            let b = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/^san /g, "").replace(/^s\. /g, "");
+            let b = normalizeBookName(name);
             const cats = {
                 "Pentateuco": ["genesis", "exodo", "levitico", "numeros", "deuteronomio"],
                 "Historia": ["josue", "jueces", "rut", "1 samuel", "2 samuel", "1 reyes", "2 reyes", "1 cronicas", "2 cronicas", "esdras", "nehemias", "ester", "hechos", "hechos de los apostoles"],

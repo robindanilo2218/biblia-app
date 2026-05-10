@@ -8,7 +8,26 @@
                 else if (n.type === 'verse' || (n.verse_numbers && n.lines)) {
                     let v = n.verse_numbers ? n.verse_numbers[0] : (n.num || "1");
                     let info = getBookInfo(b);
-                    res.push({ id: `v_${ver}_${b}_${c}_${v}`, type: 'verse', version: ver, testament: info.testament, category: info.category, book: b, chapter: c, reference: `${c}:${v}`, text: n.lines ? n.lines.join(" ") : n.text });
+                    let reference = `${c}:${v}`;
+                    let ex = currentData.find(x => x.type === 'verse' && x.book === b && x.reference === reference && (!x.text));
+                    let verseObj = { 
+                        id: ex ? ex.id : `v_${ver}_${b}_${c}_${v}`, 
+                        type: 'verse', 
+                        version: ver, 
+                        testament: info.testament, 
+                        category: info.category, 
+                        book: b, 
+                        chapter: c, 
+                        reference: reference, 
+                        text: n.lines ? n.lines.join(" ") : n.text 
+                    };
+                    if (ex) {
+                        if (ex.base_perspectives) verseObj.base_perspectives = ex.base_perspectives;
+                        if (ex.perspectives) verseObj.perspectives = ex.perspectives;
+                        if (ex.tags) verseObj.tags = ex.tags;
+                        if (ex.cross_references) verseObj.cross_references = ex.cross_references;
+                    }
+                    res.push(verseObj);
                 } else['contents', 'content', 'items', 'verses'].forEach(k => n[k] && ext(n[k], b, c));
             };
             if (json.books) json.books.forEach(b => b.chapters && b.chapters.forEach(c => ext(c, b.name, c.chapter_usfm ? c.chapter_usfm.split('.').pop() : "1")));
@@ -49,21 +68,49 @@
             const f = e.target.files[0]; if (!f) return;
             const r = new FileReader();
             r.onload = (ev) => {
+                toast("Procesando estudio bíblico...", true);
                 const study = JSON.parse(ev.target.result);
                 if (!db) return;
-                let tx = db.transaction(['verses'], 'readwrite');
-                let store = tx.objectStore('verses');
-                                study.forEach(s => {
-                    let ex = currentData.find(x => x.type === 'verse' && x.book === s.book && x.reference === s.reference);
+                
+                let dbMap = new Map();
+                currentData.forEach(x => {
+                    let nb = normalizeBookName(x.book);
+                    if (x.type === 'verse') dbMap.set("verse_" + nb + "_" + x.reference, x);
+                    else if (x.type === 'chapter_note') dbMap.set("chapter_note_" + nb + "_" + x.chapter, x);
+                    else if (x.type === 'book_note') dbMap.set("book_note_" + nb, x);
+                    else if (x.type === 'category_note') dbMap.set("category_note_" + x.category, x);
+                    else if (x.type === 'testament_note') dbMap.set("testament_note_" + x.testament, x);
+                });
+
+                let toSave = [];
+                study.forEach(s => {
+                    const stype = s.type || 'verse';
+                    let nb = normalizeBookName(s.book);
+                    let key = stype + "_";
+                    if (stype === 'verse') key += nb + "_" + s.reference;
+                    else if (stype === 'chapter_note') key += nb + "_" + s.chapter;
+                    else if (stype === 'book_note') key += nb;
+                    else if (stype === 'category_note') key += s.category;
+                    else if (stype === 'testament_note') key += s.testament;
+                    
+                    let ex = dbMap.get(key);
+                    
                     if (ex) {
                         ex.base_perspectives = { ...ex.base_perspectives, ...s.perspectives };
-                        if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
-                        if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
-                        store.put(ex);
+                        if (stype === 'verse') {
+                            if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
+                            if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
+                        }
+                        toSave.push(ex);
+                    } else {
+                        s.id = s.id || ((stype === 'verse' ? "s_" : "n_") + Math.random());
+                        s.type = stype;
+                        s.base_perspectives = s.perspectives;
+                        toSave.push(s);
                     }
-                    else { s.id = s.id || ("s_" + Math.random()); s.type = 'verse'; s.base_perspectives = s.perspectives; store.put(s); }
                 });
-                tx.oncomplete = () => { loadData().then(() => switchTab(activeTab)); };
+                
+                saveChunks(toSave, 0, () => { loadData().then(() => switchTab(activeTab)); });
             };
             r.readAsText(f);
         };

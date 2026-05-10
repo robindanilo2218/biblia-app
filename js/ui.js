@@ -84,15 +84,22 @@
             mainView.innerHTML = '';
 
             const verses = items.filter(x => x.type === 'verse').sort((a, b) => {
-                let idxA = BIBLE_BOOKS.indexOf(a.book.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-                let idxB = BIBLE_BOOKS.indexOf(b.book.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-                return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt(a.reference.split(':')[1]) - parseInt(b.reference.split(':')[1]));
+                let idxA = BIBLE_BOOKS.indexOf((a.book || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                let idxB = BIBLE_BOOKS.indexOf((b.book || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1]));
             });
 
             mainView.innerHTML = `<div class="sticky-tracker"><span id="tracker-ref" class="tracker-info">${title}</span><div class="tracker-nav">${target.type === 'chapter' ? '<button id="tr-prev">⬅️</button><button id="tr-next">➡️</button>' : ''}</div></div><div class="reading-container"><h2>${title}</h2><div id="notes-top"></div><div id="read-text"></div></div>`;
 
             const notesTop = document.getElementById('notes-top');
-            const notes = currentData.filter(x => (x.type === target.type + '_note') && x.book === target.book && x.chapter === target.chapter);
+            const notes = currentData.filter(x => {
+                if (x.type !== target.type + '_note') return false;
+                if (target.type === 'chapter') return x.book === target.book && x.chapter === target.chapter;
+                if (target.type === 'book') return x.book === target.book;
+                if (target.type === 'category') return x.category === target.category;
+                if (target.type === 'testament') return x.testament === target.testament;
+                return false;
+            });
             notes.forEach(n => {
                 if (n.base_perspectives) Object.entries(n.base_perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card"><h4>📚 Estudio: ${k}</h4><p>${v}</p></div>`);
                 if (n.perspectives) Object.entries(n.perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ Mi Nota: ${k}</h4><p>${v}</p></div>`);
@@ -121,8 +128,9 @@
 
                 let span = document.createElement('span');
                 span.className = (hasB || hasP) ? 'verse-text-span tooltip' : 'verse-text-span';
-                span.dataset.ref = `${v.book} ${v.reference}`;
-                span.innerHTML = `<span class="verse-num">${v.reference.split(':')[1]}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
+                span.dataset.ref = `${v.book || ''} ${v.reference || ''}`;
+                let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
+                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
                 span.onclick = () => viewSingleVerse(v.id);
                 readText.appendChild(span);
                 readingObserver.observe(span);

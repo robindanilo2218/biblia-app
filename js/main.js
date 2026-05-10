@@ -1,21 +1,50 @@
 /** AUTO-LOAD LOCAL */
         async function autoLoad() {
             let bData = null; let sData = null;
-            try { let rb = await fetch('biblia.json'); if (rb.ok) bData = await rb.json(); } catch (e) { }
-            try { let rs = await fetch('estudio_completo.json'); if (rs.ok) sData = await rs.json(); } catch (e) { }
+            let missingFiles = [];
+            
+            try { 
+                let rb = await fetch('biblia.json'); 
+                if (rb.ok) bData = await rb.json(); 
+                else missingFiles.push('biblia.json');
+            } catch (e) { missingFiles.push('biblia.json'); }
+            
+            try { 
+                let rs = await fetch('estudiobiblico.json'); 
+                if (rs.ok) sData = await rs.json(); 
+                else missingFiles.push('estudiobiblico.json');
+            } catch (e) { missingFiles.push('estudiobiblico.json'); }
+
+            if (missingFiles.length > 0) {
+                alert("Faltan los siguientes archivos para la carga automática:\n- " + missingFiles.join("\n- ") + "\n\nPor favor, si lo deseas, cárgalos manualmente desde el menú lateral.");
+            }
 
             if (bData) {
+                toast("Procesando datos automáticos...", true);
                 let parsed = parseBible(bData);
                 if (sData) {
-                    let bMap = new Map(); parsed.forEach(v => bMap.set(v.book + "_" + v.reference, v));
+                    let bMap = new Map(); 
+                    parsed.forEach(v => bMap.set(normalizeBookName(v.book) + "_" + v.reference, v));
+                    
                     sData.forEach(s => {
-                        let ex = bMap.get(s.book + "_" + s.reference);
-                        if (ex) {
-                            ex.base_perspectives = s.perspectives;
-                            if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
-                            if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
+                        const stype = s.type || 'verse';
+                        if (stype !== 'verse') {
+                            s.id = s.id || ("n_" + Math.random());
+                            s.base_perspectives = s.perspectives;
+                            parsed.push(s);
+                        } else {
+                            let ex = bMap.get(normalizeBookName(s.book) + "_" + s.reference);
+                            if (ex) {
+                                ex.base_perspectives = { ...ex.base_perspectives, ...s.perspectives };
+                                if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
+                                if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
+                            } else { 
+                                s.id = s.id || ("s_" + Math.random()); 
+                                s.type = 'verse'; 
+                                s.base_perspectives = s.perspectives; 
+                                parsed.push(s); 
+                            }
                         }
-                        else { s.id = "s_" + Math.random(); s.type = 'verse'; s.base_perspectives = s.perspectives; parsed.push(s); }
                     });
                 }
                 saveChunks(parsed, 0, () => { loadData().then(() => { renderSidebarBooks(); if (currentData.length > 0) viewSingleVerse(currentData[0].id); }); });
@@ -32,4 +61,4 @@
             }
             renderSidebarBooks();
             if (currentData.length > 0) viewSingleVerse(currentData[0].id);
-        };
+        };
