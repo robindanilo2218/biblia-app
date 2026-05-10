@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="110" fill="#2c3e50" />
+    <!-- Book pages -->
+    <path d="M 150 120 Q 256 120 256 140 Q 256 120 362 120 V 400 Q 256 400 256 420 Q 256 400 150 400 Z" fill="#ecf0f1" />
+    <!-- Book cover spine/edge -->
+    <path d="M 256 140 V 420" stroke="#34495e" stroke-width="6" stroke-linecap="round" />
+    <!-- Cross on the left page -->
+    <path d="M 203 210 V 310 M 178 240 H 228" stroke="#f39c12" stroke-width="12" stroke-linecap="round" />
+</svg>

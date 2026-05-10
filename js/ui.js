@@ -89,7 +89,89 @@
                 return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1]));
             });
 
-            mainView.innerHTML = `<div class="sticky-tracker"><span id="tracker-ref" class="tracker-info">${title}</span><div class="tracker-nav">${target.type === 'chapter' ? '<button id="tr-prev">⬅️</button><button id="tr-next">➡️</button>' : ''}</div></div><div class="reading-container"><h2>${title}</h2><div id="notes-top"></div><div id="read-text"></div></div>`;
+            // 1. Filtrar notas repetidas del capítulo para que no salgan en el tooltip
+            let commonNotes = {};
+            verses.forEach(v => {
+                if(v.base_perspectives) {
+                    Object.values(v.base_perspectives).forEach(val => {
+                        commonNotes[val] = (commonNotes[val] || 0) + 1;
+                    });
+                }
+            });
+            let chapterNotesSet = new Set();
+            let totalVerses = verses.length;
+            Object.entries(commonNotes).forEach(([val, count]) => {
+                if (count > 1 && count >= totalVerses * 0.3) chapterNotesSet.add(val);
+            });
+
+            mainView.innerHTML = `
+                <div class="sticky-tracker" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div id="tracker-ref" class="tracker-info">
+                        ${title}
+                    </div>
+                    <div class="tracker-nav" id="tracker-nav">
+                        ${target.type === 'chapter' ? '<button id="tr-prev" style="display:none;">⬅️</button><button id="tr-next" style="display:none;">➡️</button>' : ''}
+                        <button id="btn-range-toggle" title="Filtrar por Rango" style="margin-left:10px; background:var(--secondary); border:none; border-radius:50%; width:28px; height:28px; color:white; font-weight:bold; cursor:pointer; font-size:1.1rem; line-height:1;">+</button>
+                    </div>
+                </div>
+                <div id="range-selector" style="display:none; background:var(--primary); color:white; padding:10px; border-radius:0 0 10px 10px; margin-top:-15px; margin-bottom:15px; z-index:49; position:relative; box-shadow:0 4px 10px rgba(0,0,0,0.2); justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span>Versículos del</span>
+                    <input type="number" id="range-start" style="width:60px; border-radius:5px; border:none; padding:4px; text-align:center;" min="1" placeholder="Ini"> 
+                    <span>al</span>
+                    <input type="number" id="range-end" style="width:60px; border-radius:5px; border:none; padding:4px; text-align:center;" min="1" placeholder="Fin">
+                    <button id="btn-apply-range" style="background:var(--secondary); border:none; color:white; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">Filtrar</button>
+                    <button id="btn-clear-range" style="background:#e74c3c; border:none; color:white; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;" title="Borrar Filtro">X</button>
+                </div>
+                <div class="reading-container">
+                    <h2>${title}</h2>
+                    <div id="notes-top"></div>
+                    <div id="read-text"></div>
+                </div>`;
+
+            // Event Listeners para rango
+            const btnRangeToggle = document.getElementById('btn-range-toggle');
+            const rangeSelector = document.getElementById('range-selector');
+            if(btnRangeToggle) {
+                btnRangeToggle.onclick = () => {
+                    rangeSelector.style.display = rangeSelector.style.display === 'none' ? 'flex' : 'none';
+                    if (rangeSelector.style.display === 'flex' && window.currentTrackerRef) {
+                        document.getElementById('range-start').value = window.currentTrackerRef.verse;
+                        document.getElementById('range-end').value = window.currentTrackerRef.verse;
+                    }
+                };
+            }
+
+            const applyRangeFilter = () => {
+                let s = parseInt(document.getElementById('range-start').value);
+                let e = parseInt(document.getElementById('range-end').value);
+                if (isNaN(s) || isNaN(e)) return;
+                if (s > e) { let temp = s; s = e; e = temp; }
+                
+                let spans = document.querySelectorAll('.verse-text-span');
+                spans.forEach(span => {
+                    let ref = span.dataset.ref;
+                    if (ref) {
+                        let match = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
+                        if (match) {
+                            let vNum = parseInt(match[3]);
+                            if (vNum >= s && vNum <= e) span.style.display = 'inline';
+                            else span.style.display = 'none';
+                        }
+                    }
+                });
+            };
+
+            const clearRangeFilter = () => {
+                document.getElementById('range-start').value = '';
+                document.getElementById('range-end').value = '';
+                let spans = document.querySelectorAll('.verse-text-span');
+                spans.forEach(span => span.style.display = 'inline');
+            };
+
+            const btnApplyRange = document.getElementById('btn-apply-range');
+            if (btnApplyRange) btnApplyRange.onclick = applyRangeFilter;
+            const btnClearRange = document.getElementById('btn-clear-range');
+            if (btnClearRange) btnClearRange.onclick = clearRangeFilter;
 
             const notesTop = document.getElementById('notes-top');
             const notes = currentData.filter(x => {
@@ -105,29 +187,107 @@
                 if (n.perspectives) Object.entries(n.perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ Mi Nota: ${k}</h4><p>${v}</p></div>`);
             });
 
+            window.currentTrackerRef = null;
+            const updateTracker = (refStr) => {
+                if (!refStr) return;
+                const match = refStr.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
+                if (!match) return;
+                window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]) };
+                
+                const t = document.getElementById('tracker-ref');
+                if (!t) return;
+                t.innerHTML = `
+                    <div class="tracker-controls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.9rem;">
+                        <button class="nav-arrow left" onclick="navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-right:5px;">◀</button>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
+                            <button class="nav-arrow up" onclick="navTracker('book', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <span style="font-weight:bold; white-space:nowrap;">${match[1]}</span>
+                            <button class="nav-arrow down" onclick="navTracker('book', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                        </div>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
+                            <button class="nav-arrow up" onclick="navTracker('chapter', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <span style="font-weight:bold; white-space:nowrap;">Cap. ${match[2]}</span>
+                            <button class="nav-arrow down" onclick="navTracker('chapter', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                        </div>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            <button class="nav-arrow up" onclick="navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <span style="font-weight:bold; white-space:nowrap;">Ver. ${match[3]}</span>
+                            <button class="nav-arrow down" onclick="navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                        </div>
+                        
+                        <button class="nav-arrow right" onclick="navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-left:5px;">▶</button>
+                    </div>
+                `;
+            };
+
             const readText = document.getElementById('read-text');
             if (readingObserver) readingObserver.disconnect();
+            
+            window.manualHighlightMode = false;
+            let currentlyVisibleVerses = new Set();
+
             readingObserver = new IntersectionObserver(es => {
+                if (window.manualHighlightMode) return;
                 es.forEach(e => {
                     if (e.isIntersecting) {
-                        const t = document.getElementById('tracker-ref');
-                        if (t) t.textContent = e.target.dataset.ref;
-                        e.target.classList.add('active-reading');
-                    } else e.target.classList.remove('active-reading');
+                        currentlyVisibleVerses.add(e.target);
+                    } else {
+                        currentlyVisibleVerses.delete(e.target);
+                        e.target.classList.remove('active-reading');
+                    }
                 });
-            }, { rootMargin: '-20% 0px -70% 0px' });
+                
+                let activeVerse = null;
+                let minTop = Infinity;
+                currentlyVisibleVerses.forEach(el => {
+                    let rect = el.getBoundingClientRect();
+                    if (rect.top >= 0 && rect.top < minTop) {
+                        minTop = rect.top;
+                        activeVerse = el;
+                    }
+                });
+                
+                document.querySelectorAll('.active-reading').forEach(el => {
+                    if (el !== activeVerse) el.classList.remove('active-reading');
+                });
+                
+                if (activeVerse) {
+                    activeVerse.classList.add('active-reading');
+                    updateTracker(activeVerse.dataset.ref);
+                }
+            }, { rootMargin: '-10% 0px -50% 0px' });
 
             verses.forEach(v => {
                 let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
                 let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
-                let dot = (hasB ? `<span class="has-persp-dot base"></span>` : '') + (hasP ? `<span class="has-persp-dot"></span>` : '');
+                
+                let bFiltered = [];
+                if (hasB) {
+                    Object.entries(v.base_perspectives).forEach(([k, val]) => {
+                        if (!chapterNotesSet.has(val)) {
+                            bFiltered.push(`<b>${k.toUpperCase()}:</b><br>${val}`);
+                        }
+                    });
+                }
+                
+                let pFiltered = [];
+                if (hasP) {
+                    Object.entries(v.perspectives).forEach(([k, val]) => {
+                         pFiltered.push(`<b>${k.toUpperCase()}:</b><br>${val}`);
+                    });
+                }
+
+                let dot = (bFiltered.length > 0 ? `<span class="has-persp-dot base"></span>` : '') + (pFiltered.length > 0 ? `<span class="has-persp-dot"></span>` : '');
 
                 let tt = '';
-                if (hasB) tt += `<b>ESTUDIO:</b><br>${Object.values(v.base_perspectives).join('<br>')}<br><br>`;
-                if (hasP) tt += `<b>MI NOTA:</b><br>${Object.values(v.perspectives).join('<br>')}`;
+                if (bFiltered.length > 0) tt += `<b>ESTUDIO:</b><br>${bFiltered.join('<br><br>')}<br><br>`;
+                if (pFiltered.length > 0) tt += `<b>MI NOTA:</b><br>${pFiltered.join('<br><br>')}`;
 
                 let span = document.createElement('span');
-                span.className = (hasB || hasP) ? 'verse-text-span tooltip' : 'verse-text-span';
+                span.className = (bFiltered.length > 0 || pFiltered.length > 0) ? 'verse-text-span tooltip' : 'verse-text-span';
                 span.dataset.ref = `${v.book || ''} ${v.reference || ''}`;
                 let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
                 span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
@@ -139,8 +299,8 @@
             if (target.type === 'chapter') {
                 const p = document.getElementById('tr-prev');
                 const n = document.getElementById('tr-next');
-                if (p) p.onclick = () => nav(target, -1);
-                if (n) n.onclick = () => nav(target, 1);
+                if (p) p.onclick = () => navTracker('chapter', -1);
+                if (n) n.onclick = () => navTracker('chapter', 1);
             }
             setEditor(target, "Añadir nota a este bloque...");
         };
@@ -156,4 +316,164 @@
                 const sc = document.getElementById('scrollable-content');
                 if (sc) sc.scrollTop = 0;
             }
+        };
+
+        window.navTracker = (type, dir) => {
+            if (!window.currentTrackerRef) return;
+            let { book, chapter, verse } = window.currentTrackerRef;
+            let bIdx = BIBLE_BOOKS.indexOf(normalizeBookName(book));
+            if (bIdx === -1) return;
+            
+            if (type === 'book') {
+                bIdx += dir;
+                if (bIdx < 0 || bIdx >= BIBLE_BOOKS.length) return;
+                book = BIBLE_BOOKS[bIdx];
+            } else if (type === 'chapter') {
+                chapter += dir;
+            } else if (type === 'verse') {
+                verse += dir;
+            }
+            
+            navToBCV(book, chapter, verse);
+        };
+
+        window.navToBCV = (bName, cNum, vNum) => {
+            let bReal = normalizeBookName(bName);
+            let version = currentData.length > 0 ? currentData[0].version : "RV1960";
+            let all = currentData.filter(x => x.type === 'verse' && x.version === version);
+            
+            let inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+            if (inBook.length === 0) return;
+            
+            let maxChap = Math.max(...inBook.map(x => parseInt(x.chapter)));
+            if (cNum > maxChap) cNum = maxChap;
+            if (cNum < 1) cNum = 1;
+            
+            let inChap = inBook.filter(x => parseInt(x.chapter) === cNum);
+            if (inChap.length === 0) return;
+            
+            let maxVerse = Math.max(...inChap.map(x => parseInt((x.reference||':0').split(':')[1])));
+            if (vNum > maxVerse) vNum = maxVerse;
+            if (vNum < 1) vNum = 1;
+            
+            // Re-render the chapter view
+            let newBookOriginal = inChap[0].book;
+            viewReading(`${newBookOriginal} ${cNum}`, inChap, { type: 'chapter', version: version, book: newBookOriginal, chapter: cNum.toString() });
+            
+            setTimeout(() => scrollToVerseAndHighlight(bReal, cNum, vNum), 100);
+        };
+
+        window.scrollToVerseAndHighlight = (bReal, cNum, vNum) => {
+            let spans = document.querySelectorAll('.verse-text-span');
+            for (let span of spans) {
+                let ref = span.dataset.ref; 
+                if (ref) {
+                    let match = ref.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
+                    if (match && normalizeBookName(match[1]) === bReal && parseInt(match[2]) === cNum && parseInt(match[3]) === vNum) {
+                        window.manualHighlightMode = true;
+                        document.querySelectorAll('.active-reading').forEach(el => el.classList.remove('active-reading'));
+                        span.classList.add('active-reading');
+                        span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        clearTimeout(window.manualHighlightTimer);
+                        window.manualHighlightTimer = setTimeout(() => {
+                            window.manualHighlightMode = false;
+                            // Trigger observer manually
+                            window.scrollBy(0, 1);
+                            window.scrollBy(0, -1);
+                        }, 1000);
+                        break;
+                    }
+                }
+            }
+        };
+
+        window.viewSession = (session, fromHistory = false) => {
+            if (!fromHistory) pushHistory('viewSession', [session]);
+            if (!mainView) return;
+            mainView.innerHTML = `
+                <div class="verse-card" style="margin-bottom:20px; background:var(--primary); color:white;">
+                    <h2>📅 ${session.title}</h2>
+                    <p><b>Fecha:</b> ${session.date}</p>
+                    <p style="white-space:pre-wrap; font-size:0.9rem; margin-top:10px; border-top:1px solid rgba(255,255,255,0.3); padding-top:10px;"><b>Contenido de la Sesión:</b><br>${session.refs}</p>
+                </div>
+                <div id="session-read-text" class="reading-container" style="margin-top:0;"></div>
+            `;
+            const readText = document.getElementById('session-read-text');
+            
+            // Parse references
+            let lines = session.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x);
+            
+            lines.forEach(line => {
+                let match = line.match(/(.+?)\s+(\d+):(\d+)(?:\s*-\s*(\d+))?/);
+                if(match) {
+                    let bName = normalizeBookName(match[1].trim());
+                    let chap = match[2];
+                    let vStart = parseInt(match[3]);
+                    let vEnd = match[4] ? parseInt(match[4]) : vStart;
+                    
+                    let verses = currentData.filter(v => {
+                        if(v.type !== 'verse') return false;
+                        if(normalizeBookName(v.book) !== bName) return false;
+                        if(v.chapter != chap) return false;
+                        let vNum = parseInt((v.reference||'').split(':')[1] || 0);
+                        return vNum >= vStart && vNum <= vEnd;
+                    });
+                    
+                    if(verses.length > 0) {
+                        let divBlock = document.createElement('div');
+                        divBlock.style.marginBottom = '20px';
+                        divBlock.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">📖 ${match[1].trim()} ${chap}:${vStart}${match[4] ? '-'+match[4] : ''}</h3>`;
+                        
+                        verses.sort((a,b) => parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1])).forEach(v => {
+                            let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
+                            let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
+                            let span = document.createElement('span');
+                            span.className = 'verse-text-span tooltip';
+                            
+                            let tooltipContent = '';
+                            if(session.showStudy && hasB) {
+                                tooltipContent += `<b>ESTUDIO:</b><br>${Object.values(v.base_perspectives).join('<br>')}<br><br>`;
+                            }
+                            if(hasP) {
+                                tooltipContent += `<b>MI NOTA:</b><br>${Object.values(v.perspectives).join('<br>')}`;
+                            }
+
+                            let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
+                            span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${tooltipContent ? '<span class="has-persp-dot"></span><span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
+                            
+                            span.onclick = () => window.viewSingleVerse(v.id);
+                            divBlock.appendChild(span);
+                            
+                            if(session.showStudy && hasB) {
+                                let studyDiv = document.createElement('div');
+                                studyDiv.style = "background:#f9f9f9; padding:10px; margin:10px 0; border-left:4px solid var(--secondary); font-size:0.95rem; border-radius:5px;";
+                                let sText = Object.entries(v.base_perspectives).map(([k,val]) => `<b>${k.replace(/_/g,' ').toUpperCase()}:</b> ${val}`).join('<br><br>');
+                                studyDiv.innerHTML = sText;
+                                divBlock.appendChild(studyDiv);
+                            }
+                        });
+                        readText.appendChild(divBlock);
+                    }
+                } else {
+                    // Texto libre o búsqueda
+                    let matches = currentData.filter(x => x.type === 'verse' && x.text && x.text.toLowerCase().includes(line.toLowerCase()));
+                    if(matches.length > 0) {
+                        let divBlock = document.createElement('div');
+                        divBlock.style.marginBottom = '20px';
+                        divBlock.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">🔍 Búsqueda rápida: ${line}</h3>`;
+                        matches.slice(0, 5).forEach(v => { 
+                            let p = document.createElement('p');
+                            p.style.cursor = 'pointer';
+                            p.style.padding = '5px';
+                            p.style.borderBottom = '1px dashed #ccc';
+                            p.innerHTML = `<b>${v.book} ${v.reference}:</b> "${v.text}"`;
+                            p.onclick = () => window.viewSingleVerse(v.id);
+                            divBlock.appendChild(p);
+                        });
+                        readText.appendChild(divBlock);
+                    }
+                }
+            });
+            setEditor({ type: 'session', id: session.id }, "Añadir nota general a la sesión...");
         };

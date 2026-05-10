@@ -61,6 +61,36 @@
 
         /** INICIO */
         window.onload = async () => {
+            // Triple click para forzar actualización
+            let clickCount = 0;
+            let clickTimer;
+            const appTitle = document.getElementById('app-title');
+            if(appTitle) {
+                appTitle.addEventListener('click', () => {
+                    clickCount++;
+                    if (clickCount >= 3) {
+                        if(confirm("¿Forzar actualización de la app (Borrar caché y recargar)?")) {
+                            if('caches' in window) {
+                                caches.keys().then(names => {
+                                    for (let name of names) caches.delete(name);
+                                });
+                            }
+                            if('serviceWorker' in navigator) {
+                                navigator.serviceWorker.getRegistrations().then(registrations => {
+                                    for(let registration of registrations) {
+                                        registration.unregister();
+                                    }
+                                });
+                            }
+                            setTimeout(() => window.location.reload(true), 500);
+                        }
+                        clickCount = 0;
+                    }
+                    clearTimeout(clickTimer);
+                    clickTimer = setTimeout(() => clickCount = 0, 1000);
+                });
+            }
+
             await initDB();
             await loadData();
             if (currentData.length === 0 && !localStorage.getItem('db_cleared')) {

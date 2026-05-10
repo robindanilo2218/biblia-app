@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
+<!DOCTYPE html>
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
@@ -7,7 +9,8 @@
     <title>Biblia de Estudio Avanzada</title>
     <meta name="theme-color" content="#2c3e50">
     <meta name="description" content="Aprende la Biblia, crea estudios, filtros y puntos de vista. PWA Offline-First.">
-    <link id="manifest-link" rel="manifest" href="">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon.svg">
 
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -15,7 +18,7 @@
 <body>
 
     <header>
-        <h1>📖 Biblia de Estudio</h1>
+        <h1 id="app-title" style="cursor: pointer; user-select: none;">📖 Biblia de Estudio</h1>
         <div class="badges">
             <span id="offline-badge" class="badge">Offline</span>
             <button id="install-btn"
@@ -27,15 +30,16 @@
         <aside id="main-sidebar">
             <div class="sidebar-tabs">
                 <button id="tab-books" class="active">📚 Biblia</button>
-                <button id="tab-persp">👁️ Temas</button>
-                <button id="tab-filters">🔍 Filtros</button>
+                <button id="tab-persp" title="Temas y Búsquedas">👁️ Temas</button>
+                <button id="tab-sessions" title="Agendas y Sesiones">📅 Sesiones</button>
+                <button id="tab-filters" style="display:none;">🔍 Filtros</button>
             </div>
 
-            <div class="import-group">
-                <button class="btn-ui btn-p" id="btn-import">📥 1. Cargar Biblia JSON</button>
-                <button class="btn-ui btn-s" id="btn-import-study">📝 2. Importar Estudio</button>
-                <button class="btn-ui btn-u" id="btn-export-unified">📦 3. Exportar Todo</button>
-                <button class="btn-ui btn-x" id="btn-clear-db">🗑️ 4. Borrar Todo</button>
+            <div class="import-group" style="display: flex; flex-direction: row; justify-content: center; padding: 10px 0; gap: 20px; border-top: 1px solid #ccc; margin-top: 10px;">
+                <button id="btn-import-study" title="Importar Mis Notas" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📁</button>
+                <button id="btn-export-unified" title="Exportar Todo" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">💾</button>
+                <button id="btn-clear-db" title="Borrar Todo" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
+                <button id="btn-import" title="Cargar Otra Biblia" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📤</button>
                 <input type="file" id="file-import" accept=".json" style="display: none;">
                 <input type="file" id="file-import-study" accept=".json" style="display: none;">
             </div>
@@ -80,6 +84,15 @@
     <script src="js/importExport.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/main.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.error('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
 </body>
 
 </html>
