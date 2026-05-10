@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Biblia de Estudio Avanzada</title>
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="description" content="Aprende la Biblia, crea estudios, filtros y puntos de vista. PWA Offline-First.">
+    <link id="manifest-link" rel="manifest" href="">
+    
+    <style>
+        /* CSS OPTIMIZADO - Velocidad y Estética */
+        :root {
+            --primary: #2c3e50;
+            --secondary: #e67e22;
+            --bg-color: #fdfbf7;
+            --surface: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #e0e0e0;
+            --radius: 12px;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; overflow: hidden; }
+
+        header { background-color: var(--primary); color: white; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center; z-index: 100; flex-shrink: 0; }
+        header h1 { font-size: 1.3rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        main { display: flex; flex: 1; max-width: 1600px; margin: 0 auto; width: 100%; overflow: hidden; position: relative; }
+
+        /* Sidebar Navegación */
+        aside { width: 350px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; transition: transform 0.3s ease; }
+        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); background: #f8f9fa; }
+        .sidebar-tabs button { flex: 1; padding: 12px 5px; border: none; background: transparent; cursor: pointer; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; transition: 0.2s; border-bottom: 3px solid transparent; }
+        .sidebar-tabs button.active { background: var(--surface); color: var(--primary); border-bottom-color: var(--primary); }
+
+        .import-group { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #f8f9fa; border-bottom: 1px solid var(--border); }
+        .btn-ui { border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.2s; color: white; text-align: left; }
+        .btn-p { background-color: var(--primary); }
+        .btn-s { background-color: var(--secondary); }
+        .btn-u { background-color: #2980b9; }
+        .btn-x { background-color: #e74c3c; }
+        .btn-ui:hover { opacity: 0.9; transform: translateX(2px); }
+
+        #sidebar-content { padding: 8px; overflow-y: auto; flex: 1; scrollbar-width: thin; }
+
+        /* Arbol Visual */
+        details { margin-bottom: 2px; }
+        summary { cursor: pointer; padding: 8px 10px; font-weight: 600; border-radius: 6px; transition: 0.1s; list-style: none; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+        summary:hover { background: #f0f4f8; }
+        summary::before { content: '▶'; font-size: 0.6rem; transition: 0.1s; color: var(--text-muted); }
+        details[open] > summary::before { transform: rotate(90deg); }
+        .tree-item { padding: 6px 10px 6px 28px; cursor: pointer; border-radius: 6px; font-size: 0.85rem; transition: 0.1s; margin: 1px 0; }
+        .tree-item:hover { background: #f0f4f8; color: var(--primary); }
+        .tree-item.active { background: #e3f2fd; color: var(--primary); font-weight: bold; }
+
+        /* Contenido Central */
+        section.content { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); position: relative; overflow: hidden; }
+        #scrollable-content { flex: 1; overflow-y: auto; padding: 1rem; scroll-behavior: smooth; }
+
+        .content-header { display: flex; align-items: center; gap: 15px; margin-bottom: 0.5rem; flex-shrink: 0; }
+        .btn-back { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: var(--shadow); font-size: 0.85rem; }
+        .btn-back:hover { color: var(--primary); border-color: var(--primary); }
+
+        /* Tracker Flotante */
+        .sticky-tracker { position: sticky; top: -16px; background: var(--primary); color: white; border-radius: 10px; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; box-shadow: 0 8px 20px rgba(0,0,0,0.15); margin: 0 0 15px 0; }
+        .tracker-info { font-weight: bold; font-size: 1rem; }
+        .tracker-nav { display: flex; gap: 5px; }
+        .tracker-nav button { background: rgba(255,255,255,0.15); border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; }
+
+        /* Lectura */
+        .reading-container { background: var(--surface); padding: 2.5rem; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); max-width: 900px; margin: 0 auto; min-height: 100%; }
+        .verse-card { background: var(--surface); padding: 2rem; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center; margin-bottom: 1rem; }
+        .verse-text-span { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: 0.1s; position: relative; display: inline; }
+        .verse-text-span:hover { background-color: #fff9c4; }
+        .verse-text-span.active-reading { background-color: #e1f5fe; box-shadow: 0 0 0 2px #03a9f4; }
+        .verse-num { font-size: 0.75em; font-weight: 800; color: var(--secondary); vertical-align: super; margin-right: 4px; }
+        
+        .study-section-title { font-size: 1.1rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 4px; margin: 1.5rem 0 0.8rem 0; font-weight: bold; }
+        
+        /* Notas */
+        .has-persp-dot { display: inline-block; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; margin-left: 3px; vertical-align: middle; }
+        .has-persp-dot.base { background: var(--secondary); }
+        .tooltiptext { visibility: hidden; width: 300px; background: #2c3e50; color: white; padding: 12px; border-radius: 8px; position: absolute; z-index: 100; bottom: 130%; left: 50%; transform: translateX(-50%); opacity: 0; transition: 0.2s; font-size: 0.85rem; pointer-events: none; text-align: left; }
+        .verse-text-span:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+        .level-note-card { background: #fff8e1; border-left: 5px solid var(--secondary); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.95rem; }
+        .level-note-card.personal { background: #f0f4f8; border-left-color: #2196f3; }
+        
+        /* Editor */
+        .global-editor { background: var(--surface); padding: 15px; border-radius: var(--radius); border: 2px dashed var(--primary); margin-top: 15px; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .editor-container { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .editor-container input, .editor-container textarea { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; width: 100%; }
+        .btn-save-note { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        .perspective-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 10px; }
+        .btn-persp { padding: 0.5rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; color: var(--text-main); font-weight: 500; }
+        .btn-persp.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .btn-persp.base-study { border-color: var(--secondary); color: var(--secondary); }
+        .btn-persp.base-study.active { background: var(--secondary); color: white; }
+        .perspective-content { background: var(--surface); padding: 1.2rem; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 1rem; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-toast { position: fixed; bottom: 20px; right: 20px; background: var(--primary); color: white; padding: 12px 20px; border-radius: 10px; z-index: 1000; font-weight: bold; display: none; border-left: 5px solid var(--secondary); font-size: 0.9rem; }
+
+        @media (max-width: 768px) { aside { display: none; } .reading-container { padding: 1.2rem; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📖 Biblia de Estudio</h1>
+        <div class="badges">
+            <span id="offline-badge" class="badge">Offline</span>
+            <button id="install-btn" style="display:none; background: var(--secondary); border:none; color:white; padding:4px 12px; border-radius:15px; cursor:pointer; font-weight:bold; font-size:0.8rem;">Instalar</button>
+        </div>
+    </header>
+
+    <main>
+        <aside id="main-sidebar">
+            <div class="sidebar-tabs">
+                <button id="tab-books" class="active">📚 Biblia</button>
+                <button id="tab-persp">👁️ Temas</button>
+                <button id="tab-filters">🔍 Filtros</button>
+            </div>
+            
+            <div class="import-group">
+                <button class="btn-ui btn-p" id="btn-import">📥 1. Cargar Biblia JSON</button>
+                <button class="btn-ui btn-s" id="btn-import-study">📝 2. Importar Estudio</button>
+                <button class="btn-ui btn-u" id="btn-export-unified">📦 3. Exportar Todo</button>
+                <button class="btn-ui btn-x" id="btn-clear-db">🗑️ 4. Borrar Todo</button>
+                <input type="file" id="file-import" accept=".json" style="display: none;">
+                <input type="file" id="file-import-study" accept=".json" style="display: none;">
+            </div>
+            
+            <div id="sidebar-content"></div>
+        </aside>
+
+        <section class="content">
+            <div id="scrollable-content">
+                <div class="content-header">
+                    <button class="btn-back" id="btn-back" style="display: none;">⬅️ Regresar</button>
+                </div>
+
+                <div id="main-view-container">
+                    <!-- Dinámico -->
+                </div>
+
+                <div id="global-editor" class="global-editor" style="display: none;">
+                    <button id="btn-toggle-editor" style="width:100%; padding:10px; border:1px dashed var(--primary); border-radius:8px; background:none; cursor:pointer; font-weight:bold; color:var(--primary);">➕ Gestionar Mis Notas Personales</button>
+                    <div id="editor-container" class="editor-container" style="display: none;">
+                        <input type="text" id="new-persp-name" placeholder="Título (Ej: Mi Resumen)">
+                        <input type="text" id="new-persp-tags" placeholder="Etiquetas (separadas por coma)">
+                        <textarea id="new-persp-text" rows="3" placeholder="Escribe tu análisis personal aquí..."></textarea>
+                        <button id="btn-save-note" class="btn-save-note">💾 Guardar en Mis Notas</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="progress-toast" class="progress-toast"></div>
+
+    <script>
+        /** VARIABLES DE ESTADO Y DOM - Declaradas al inicio para evitar ReferenceError */
+        const dbName = "BibliaPerspectivasDB";
+        let db;
+        let currentData = [];
+        let editorTarget = null;
+        let historyStack = [];
+        let activeTab = 'books';
+        let readingObserver = null;
+
+        /** ELEMENTOS DOM */
+        const mainView = document.getElementById('main-view-container');
+        const globalEditor = document.getElementById('global-editor');
+        const editorContainer = document.getElementById('editor-container');
+        const sidebarContent = document.getElementById('sidebar-content');
+        const btnBack = document.getElementById('btn-back');
+
+        const BIBLE_BOOKS = [
+            "genesis", "exodo", "levitico", "numeros", "deuteronomio", "josue", "jueces", "rut", "1 samuel", "2 samuel", "1 reyes", "2 reyes", "1 cronicas", "2 cronicas", "esdras", "nehemias", "ester", "job", "salmos", "salmo", "proverbios", "eclesiastes", "cantares", "cantar de los cantares", "isaias", "jeremias", "lamentaciones", "ezequiel", "daniel", "oseas", "joel", "amos", "abdias", "jonas", "miqueas", "nahum", "habacuc", "sofonias", "hageo", "zacarias", "malaquias",
+            "mateo", "marcos", "lucas", "juan", "hechos", "hechos de los apostoles", "romanos", "1 corintios", "2 corintios", "galatas", "efesios", "filipenses", "colosenses", "1 tesalonicenses", "2 tesalonicenses", "1 timoteo", "2 timoteo", "tito", "filemon", "hebreos", "santiago", "1 pedro", "2 pedro", "1 juan", "2 juan", "3 juan", "judas", "apocalipsis"
+        ];
+
+        const demoData = [
+            { id: "demo1", type: "verse", version: "Biblia Demo", book: "Proverbios", chapter: "16", reference: "16:3", text: "Pon en manos del Señor todas tus obras, y tus proyectos se cumplirán.", base_perspectives: { "Estudio": "Confianza absoluta." } },
+            { id: "demo2", type: "verse", version: "Biblia Demo", book: "Romanos", chapter: "12", reference: "12:2", text: "No se amolden al mundo actual, sino sean transformados mediante la renovación de su mente.", base_perspectives: { "Metanoia": "Renovación mental." } }
+        ];
+
+        /** UTILIDADES */
+        const getBookInfo = (name) => {
+            if (!name) return { testament: "Otros", category: "Otros" };
+            let b = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/^san /g, "").replace(/^s\. /g, "");
+            const cats = {
+                "Pentateuco": ["genesis", "exodo", "levitico", "numeros", "deuteronomio"],
+                "Historia": ["josue", "jueces", "rut", "1 samuel", "2 samuel", "1 reyes", "2 reyes", "1 cronicas", "2 cronicas", "esdras", "nehemias", "ester", "hechos", "hechos de los apostoles"],
+                "Poesía": ["job", "salmos", "salmo", "proverbios", "eclesiastes", "cantares", "cantar de los cantares"],
+                "Profetas": ["isaias", "jeremias", "lamentaciones", "ezequiel", "daniel", "oseas", "joel", "amos", "abdias", "jonas", "miqueas", "nahum", "habacuc", "sofonias", "hageo", "zacarias", "malaquias"],
+                "Evangelios": ["mateo", "marcos", "lucas", "juan"],
+                "Cartas": ["romanos", "1 corintios", "2 corintios", "galatas", "efesios", "filipenses", "colosenses", "1 tesalonicenses", "2 tesalonicenses", "1 timoteo", "2 timoteo", "tito", "filemon", "hebreos", "santiago", "1 pedro", "2 pedro", "1 juan", "2 juan", "3 juan", "judas"],
+                "Profecía": ["apocalipsis"]
+            };
+            let found = "Otros";
+            for (let c in cats) { if (cats[c].includes(b)) { found = c; break; } }
+            let test = BIBLE_BOOKS.indexOf(b) < 41 ? "Antiguo Testamento" : "Nuevo Testamento";
+            return { testament: test, category: found };
+        };
+
+        const toast = (msg, isSuccess = false) => {
+            const t = document.getElementById('progress-toast');
+            if(!t) return;
+            t.textContent = msg;
+            t.style.backgroundColor = isSuccess ? "#27ae60" : "#2c3e50";
+            t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 3000);
+        };
+
+        /** BASE DE DATOS */
+        const initDB = () => new Promise((res, rej) => {
+            const req = indexedDB.open(dbName, 2);
+            req.onupgradeneeded = (e) => {
+                if (!e.target.result.objectStoreNames.contains('verses')) e.target.result.createObjectStore('verses', { keyPath: 'id' });
+            };
+            req.onsuccess = (e) => { db = e.target.result; res(db); };
+            req.onerror = (e) => rej(e.target.errorCode);
+        });
+
+        const loadData = () => new Promise((res) => {
+            if(!db) return res([]);
+            let req = db.transaction(['verses'], 'readonly').objectStore('verses').getAll();
+            req.onsuccess = () => { currentData = req.result; res(currentData); };
+        });
+
+        /** MOTOR DE VISTA */
+        const pushHistory = (fn, params) => {
+            if (historyStack.length > 0) {
+                let last = historyStack[historyStack.length - 1];
+                if (last.fn === fn && JSON.stringify(last.params) === JSON.stringify(params)) return;
+            }
+            historyStack.push({ fn, params });
+            if(btnBack) btnBack.style.display = historyStack.length > 1 ? 'block' : 'none';
+        };
+
+        if(btnBack) {
+            btnBack.onclick = () => {
+                if (historyStack.length > 1) {
+                    historyStack.pop();
+                    let prev = historyStack[historyStack.length - 1];
+                    window[prev.fn](...prev.params, true);
+                }
+                btnBack.style.display = historyStack.length > 1 ? 'block' : 'none';
+            };
+        }
+
+        const setEditor = (target, placeholder) => {
+            editorTarget = target;
+            if(globalEditor) globalEditor.style.display = 'block';
+            if(editorContainer) editorContainer.style.display = 'none';
+            const nameInp = document.getElementById('new-persp-name');
+            const textInp = document.getElementById('new-persp-text');
+            if(nameInp) { nameInp.placeholder = placeholder; nameInp.value = ''; }
+            if(textInp) textInp.value = '';
+        };
+
+        window.viewSingleVerse = (id, fromHistory = false) => {
+            if (!fromHistory) pushHistory('viewSingleVerse', [id]);
+            if(!mainView) return;
+            mainView.innerHTML = '';
+            const v = currentData.find(x => x.id === id);
+            if (!v) return;
+
+            mainView.innerHTML = `
+                <div class="verse-card">
+                    <h2>${v.book} ${v.reference}</h2>
+                    <p style="font-size:1.4rem; font-style:italic;">"${v.text || ''}"</p>
+                </div>
+                <div id="v-sections">
+                    ${v.base_perspectives ? `<h3 class="study-section-title">📚 Estudio Bíblico</h3><div class="perspective-selector" id="b-btns"></div><div id="b-cont" class="perspective-content" style="display:none; border-color:var(--secondary);"></div>` : ''}
+                    <h3 class="study-section-title">✍️ Mis Notas Personales</h3><div class="perspective-selector" id="p-btns"></div><div id="p-cont" class="perspective-content" style="display:none;"></div>
+                </div>
+            `;
+            setEditor({ type: 'verse', id: v.id }, "Título de mi nota personal...");
+
+            const fill = (data, btnDivId, contDivId, isBase) => {
+                const btnDiv = document.getElementById(btnDivId);
+                const contDiv = document.getElementById(contDivId);
+                if (!data || !btnDiv) return;
+                Object.keys(data).forEach((k, i) => {
+                    let btn = document.createElement('button');
+                    btn.className = isBase ? 'btn-persp base-study' : 'btn-persp';
+                    btn.textContent = k.replace(/_/g, ' ').toUpperCase();
+                    btn.onclick = () => {
+                        const selector = isBase ? '.base-study' : '.btn-persp:not(.base-study)';
+                        document.querySelectorAll(selector).forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        contDiv.style.display = 'block';
+                        contDiv.innerHTML = `<h3>${btn.textContent}</h3><p>${data[k]}</p>`;
+                        if(!isBase) {
+                            document.getElementById('new-persp-name').value = k;
+                            document.getElementById('new-persp-text').value = data[k];
+                        }
+                    };
+                    btnDiv.appendChild(btn);
+                    if(i === 0) btn.click();
+                });
+            };
+            fill(v.base_perspectives, 'b-btns', 'b-cont', true);
+            fill(v.perspectives, 'p-btns', 'p-cont', false);
+        };
+
+        window.viewReading = (title, items, target, fromHistory = false) => {
+            if (!fromHistory) pushHistory('viewReading', [title, items, target]);
+            if(!mainView) return;
+            mainView.innerHTML = '';
+            
+            const verses = items.filter(x => x.type === 'verse').sort((a,b) => {
+                let idxA = BIBLE_BOOKS.indexOf(a.book.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                let idxB = BIBLE_BOOKS.indexOf(b.book.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt(a.reference.split(':')[1]) - parseInt(b.reference.split(':')[1]));
+            });
+
+            mainView.innerHTML = `<div class="sticky-tracker"><span id="tracker-ref" class="tracker-info">${title}</span><div class="tracker-nav">${target.type==='chapter' ? '<button id="tr-prev">⬅️</button><button id="tr-next">➡️</button>' : ''}</div></div><div class="reading-container"><h2>${title}</h2><div id="notes-top"></div><div id="read-text"></div></div>`;
+            
+            const notesTop = document.getElementById('notes-top');
+            const notes = currentData.filter(x => (x.type === target.type+'_note') && x.book === target.book && x.chapter === target.chapter);
+            notes.forEach(n => {
+                if(n.base_perspectives) Object.entries(n.base_perspectives).forEach(([k,v]) => notesTop.innerHTML += `<div class="level-note-card"><h4>📚 Estudio: ${k}</h4><p>${v}</p></div>`);
+                if(n.perspectives) Object.entries(n.perspectives).forEach(([k,v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ Mi Nota: ${k}</h4><p>${v}</p></div>`);
+            });
+
+            const readText = document.getElementById('read-text');
+            if(readingObserver) readingObserver.disconnect();
+            readingObserver = new IntersectionObserver(es => {
+                es.forEach(e => {
+                    if(e.isIntersecting) {
+                        const t = document.getElementById('tracker-ref');
+                        if(t) t.textContent = e.target.dataset.ref;
+                        e.target.classList.add('active-reading');
+                    } else e.target.classList.remove('active-reading');
+                });
+            }, { rootMargin: '-20% 0px -70% 0px' });
+
+            verses.forEach(v => {
+                let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
+                let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
+                let dot = (hasB ? `<span class="has-persp-dot base"></span>` : '') + (hasP ? `<span class="has-persp-dot"></span>` : '');
+                
+                let tt = '';
+                if(hasB) tt += `<b>ESTUDIO:</b><br>${Object.values(v.base_perspectives).join('<br>')}<br><br>`;
+                if(hasP) tt += `<b>MI NOTA:</b><br>${Object.values(v.perspectives).join('<br>')}`;
+
+                let span = document.createElement('span');
+                span.className = (hasB||hasP) ? 'verse-text-span tooltip' : 'verse-text-span';
+                span.dataset.ref = `${v.book} ${v.reference}`;
+                span.innerHTML = `<span class="verse-num">${v.reference.split(':')[1]}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
+                span.onclick = () => viewSingleVerse(v.id);
+                readText.appendChild(span);
+                readingObserver.observe(span);
+            });
+
+            if(target.type==='chapter') {
+                const p = document.getElementById('tr-prev');
+                const n = document.getElementById('tr-next');
+                if(p) p.onclick = () => nav(target, -1);
+                if(n) n.onclick = () => nav(target, 1);
+            }
+            setEditor(target, "Añadir nota a este bloque...");
+        };
+
+        const nav = (t, off) => {
+            const all = currentData.filter(x => x.type === 'verse' && x.version === t.version);
+            const chaps = []; const seen = new Set();
+            all.forEach(v => { let k = v.book + "_" + v.chapter; if(!seen.has(k)) { seen.add(k); chaps.push({b: v.book, c: v.chapter}); } });
+            let idx = chaps.findIndex(x => x.b === t.book && x.c === t.chapter);
+            if(idx !== -1 && chaps[idx+off]) {
+                let n = chaps[idx+off];
+                viewReading(`${n.b} ${n.c}`, all.filter(x => x.book === n.b && x.chapter === n.c), { type:'chapter', version: t.version, book: n.b, chapter: n.c });
+                const sc = document.getElementById('scrollable-content');
+                if(sc) sc.scrollTop = 0;
+            }
+        };
+
+        /** IMPORTACIÓN */
+        const parseBible = (json) => {
+            let res = [];
+            const ver = json.local_title || "Biblia";
+            const ext = (n, b, c) => {
+                if(!n) return;
+                if(Array.isArray(n)) n.forEach(x => ext(x, b, c));
+                else if(n.type === 'verse' || (n.verse_numbers && n.lines)) {
+                    let v = n.verse_numbers ? n.verse_numbers[0] : (n.num || "1");
+                    let info = getBookInfo(b);
+                    res.push({ id:`v_${ver}_${b}_${c}_${v}`, type:'verse', version:ver, testament:info.testament, category:info.category, book:b, chapter:c, reference:`${c}:${v}`, text:n.lines ? n.lines.join(" ") : n.text });
+                } else ['contents','content','items','verses'].forEach(k => n[k] && ext(n[k], b, c));
+            };
+            if(json.books) json.books.forEach(b => b.chapters && b.chapters.forEach(c => ext(c, b.name, c.chapter_usfm ? c.chapter_usfm.split('.').pop() : "1")));
+            else if(Array.isArray(json)) return json;
+            return res;
+        };
+
+        const saveChunks = (data, start, cb) => {
+            const chunk = data.slice(start, start + 2500);
+            if(chunk.length === 0) { toast("¡Carga completa!", true); if(cb) cb(); return; }
+            if(!db) return;
+            let tx = db.transaction(['verses'], 'readwrite');
+            chunk.forEach(x => tx.objectStore('verses').put(x));
+            tx.oncomplete = () => { 
+                toast(`Indexando: ${Math.round((start+chunk.length)/data.length*100)}%`); 
+                setTimeout(() => saveChunks(data, start+2500, cb), 5); 
+            };
+        };
+
+        document.getElementById('btn-import').onclick = () => document.getElementById('file-import').click();
+        document.getElementById('file-import').onchange = (e) => {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+                const json = JSON.parse(ev.target.result);
+                const parsed = parseBible(json);
+                if(db) {
+                    let tx = db.transaction(['verses'], 'readwrite');
+                    currentData.filter(x => x.version === "Biblia Demo").forEach(d => tx.objectStore('verses').delete(d.id));
+                    tx.oncomplete = () => { localStorage.setItem('db_cleared','true'); saveChunks(parsed, 0, () => { loadData().then(renderSidebarBooks); }); };
+                }
+            };
+            r.readAsText(f);
+        };
+
+        document.getElementById('btn-import-study').onclick = () => document.getElementById('file-import-study').click();
+        document.getElementById('file-import-study').onchange = (e) => {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+                const study = JSON.parse(ev.target.result);
+                if(!db) return;
+                let tx = db.transaction(['verses'], 'readwrite');
+                let store = tx.objectStore('verses');
+                study.forEach(s => {
+                    let ex = currentData.find(x => x.type==='verse' && x.book === s.book && x.reference === s.reference);
+                    if(ex) { ex.base_perspectives = {...ex.base_perspectives, ...s.perspectives}; store.put(ex); }
+                    else { s.id = s.id || ("s_"+Math.random()); s.type='verse'; s.base_perspectives = s.perspectives; store.put(s); }
+                });
+                tx.oncomplete = () => { loadData().then(() => switchTab(activeTab)); };
+            };
+            r.readAsText(f);
+        };
+
+        document.getElementById('btn-export-unified').onclick = () => {
+            const exportData = currentData.map(v => { let exp = {...v}; delete exp.perspectives; delete exp.tags; return exp; });
+            const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData)); a.download = "biblia_estudio_unificada.json"; a.click();
+        };
+
+        /** RENDER SIDEBAR */
+        function renderSidebarBooks() {
+            if(!sidebarContent) return;
+            sidebarContent.innerHTML = '';
+            const tree = {};
+            currentData.forEach(v => {
+                if (v.type !== 'verse') return;
+                const ver = v.version || "Biblia";
+                const info = getBookInfo(v.book);
+                if(!tree[ver]) tree[ver] = {};
+                if(!tree[ver][info.testament]) tree[ver][info.testament] = {};
+                if(!tree[ver][info.testament][info.category]) tree[ver][info.testament][info.category] = {};
+                if(!tree[ver][info.testament][info.category][v.book]) tree[ver][info.testament][info.category][v.book] = {};
+                if(!tree[ver][info.testament][info.category][v.book][v.chapter]) tree[ver][info.testament][info.category][v.book][v.chapter] = [];
+                tree[ver][info.testament][info.category][v.book][v.chapter].push(v);
+            });
+
+            for(let ver in tree) {
+                let dVer = document.createElement('details'); dVer.open = true; dVer.innerHTML = `<summary>📖 ${ver}</summary>`;
+                for(let test in tree[ver]) {
+                    let dTest = document.createElement('details'); dTest.open = true; dTest.innerHTML = `<summary>📜 ${test}</summary>`;
+                    for(let cat in tree[ver][test]) {
+                        let dCat = document.createElement('details'); dCat.innerHTML = `<summary>📂 ${cat}</summary>`;
+                        dCat.querySelector('summary').onclick = (e) => { 
+                            e.preventDefault(); dCat.open = !dCat.open; 
+                            if(dCat.open) {
+                                let all=[]; Object.values(tree[ver][test][cat]).forEach(b => Object.values(b).forEach(c => all.push(...c))); 
+                                viewReading(cat, all, {type:'category', version:ver, category:cat}); 
+                            }
+                        };
+                        for(let book in tree[ver][test][cat]) {
+                            let dBook = document.createElement('details'); dBook.innerHTML = `<summary>📘 ${book}</summary>`;
+                            dBook.querySelector('summary').onclick = (e) => { 
+                                e.preventDefault(); dBook.open = !dBook.open; 
+                                if(dBook.open) {
+                                    let all=[]; Object.values(tree[ver][test][cat][book]).forEach(c => all.push(...c)); 
+                                    viewReading(book, all, {type:'book', version:ver, book}); 
+                                }
+                            };
+                            // Lazy render chapters
+                            dBook.ontoggle = () => {
+                                if(dBook.open && dBook.children.length === 1) {
+                                    Object.keys(tree[ver][test][cat][book]).sort((a,b)=>parseInt(a)-parseInt(b)).forEach(c => {
+                                        let dCap = document.createElement('div'); dCap.className = 'tree-item'; dCap.textContent = `Capítulo ${c}`;
+                                        dCap.onclick = (ev) => { ev.stopPropagation(); viewReading(`${book} ${c}`, tree[ver][test][cat][book][c], {type:'chapter', version:ver, book, chapter:c}); };
+                                        dBook.appendChild(dCap);
+                                    });
+                                }
+                            };
+                            dCat.appendChild(dBook);
+                        }
+                        dTest.appendChild(dCat);
+                    }
+                    dVer.appendChild(dTest);
+                }
+                sidebarContent.appendChild(dVer);
+            }
+        }
+
+        /** TABS */
+        function switchTab(t) {
+            activeTab = t;
+            document.querySelectorAll('.sidebar-tabs button').forEach(b => b.classList.remove('active'));
+            const tb = document.getElementById('tab-'+t);
+            if(tb) tb.classList.add('active');
+            if(t==='books') renderSidebarBooks();
+            else if(t==='persp') {
+                if(sidebarContent) {
+                    sidebarContent.innerHTML = '<div style="padding:10px;"><input type="text" id="w-search" placeholder="🔍 Buscar palabra..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd;"></div><div id="search-res"></div>';
+                    const search = sidebarContent.querySelector('#w-search');
+                    if(search) {
+                        search.onkeyup = (e) => { if(e.key === 'Enter') { 
+                            let val = search.value.trim().toLowerCase(); 
+                            let matches = currentData.filter(x => x.type==='verse' && x.text && x.text.toLowerCase().includes(val)); 
+                            viewReading(`Búsqueda: ${val}`, matches, {type:'filter'}); 
+                        }};
+                    }
+                }
+            }
+        }
+        document.getElementById('tab-books').onclick = () => switchTab('books');
+        document.getElementById('tab-persp').onclick = () => switchTab('persp');
+        document.getElementById('tab-filters').onclick = () => switchTab('filters');
+
+        /** EDITOR */
+        document.getElementById('btn-toggle-editor').onclick = () => {
+            if(editorContainer) editorContainer.style.display = editorContainer.style.display === 'none' ? 'flex' : 'none';
+        };
+        document.getElementById('btn-save-note').onclick = () => {
+            if(!editorTarget) return;
+            const name = document.getElementById('new-persp-name').value.trim();
+            const text = document.getElementById('new-persp-text').value.trim();
+            if(!name || !text) return alert("Completa los campos");
+            let item;
+            if(editorTarget.type === 'verse') {
+                item = currentData.find(x => x.id === editorTarget.id);
+                if(!item.perspectives) item.perspectives = {};
+                item.perspectives[name.toLowerCase()] = text;
+            } else {
+                const t = editorTarget.type + '_note';
+                item = currentData.find(x => x.type === t && x.book === editorTarget.book && x.chapter === editorTarget.chapter);
+                if(!item) item = { id: `n_${Date.now()}`, type: t, version: editorTarget.version, book: editorTarget.book, chapter: editorTarget.chapter, category: editorTarget.category, perspectives: {} };
+                item.perspectives[name.toLowerCase()] = text;
+            }
+            if(!db) return;
+            let tx = db.transaction(['verses'], 'readwrite'); tx.objectStore('verses').put(item);
+            tx.oncomplete = async () => { await loadData(); toast("Guardado", true); if(editorTarget.type==='verse') viewSingleVerse(item.id); else switchTab(activeTab); };
+        };
+
+        /** BORRAR TODO */
+        document.getElementById('btn-clear-db').onclick = () => {
+            if(confirm("¿Borrar todo el contenido local?")) {
+                if(!db) return;
+                let tx = db.transaction(['verses'], 'readwrite');
+                tx.objectStore('verses').clear();
+                tx.oncomplete = () => { localStorage.setItem('db_cleared','true'); location.reload(); };
+            }
+        };
+
+        /** AUTO-LOAD LOCAL */
+        async function autoLoad() {
+            let bData = null; let sData = null;
+            try { let rb = await fetch('biblia.json'); if(rb.ok) bData = await rb.json(); } catch(e){}
+            try { let rs = await fetch('estudio_completo.json'); if(rs.ok) sData = await rs.json(); } catch(e){}
+
+            if(bData) {
+                let parsed = parseBible(bData);
+                if(sData) {
+                    let bMap = new Map(); parsed.forEach(v => bMap.set(v.book+"_"+v.reference, v));
+                    sData.forEach(s => {
+                        let ex = bMap.get(s.book+"_"+s.reference);
+                        if(ex) { ex.base_perspectives = s.perspectives; } 
+                        else { s.id="s_"+Math.random(); s.type='verse'; s.base_perspectives=s.perspectives; parsed.push(s); }
+                    });
+                }
+                saveChunks(parsed, 0, () => { loadData().then(() => { renderSidebarBooks(); if(currentData.length>0) viewSingleVerse(currentData[0].id); }); });
+            }
+        }
+
+        /** INICIO */
+        window.onload = async () => {
+            await initDB();
+            await loadData();
+            if(currentData.length === 0 && !localStorage.getItem('db_cleared')) {
+                currentData = demoData;
+                await autoLoad();
+            }
+            renderSidebarBooks();
+            if(currentData.length > 0) viewSingleVerse(currentData[0].id);
+        };
+    </script>
+</body>
+</html>
