@@ -188,37 +188,37 @@
             });
 
             window.currentTrackerRef = null;
-            const updateTracker = (refStr) => {
+            window.globalUpdateTracker = (refStr, version) => {
                 if (!refStr) return;
                 const match = refStr.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
                 if (!match) return;
-                window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]) };
+                window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
                 
                 const t = document.getElementById('tracker-ref');
                 if (!t) return;
                 t.innerHTML = `
                     <div class="tracker-controls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.9rem;">
-                        <button class="nav-arrow left" onclick="navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-right:5px;">◀</button>
+                        <button class="nav-arrow left" onclick="window.navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-right:5px;">◀</button>
                         
                         <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
-                            <button class="nav-arrow up" onclick="navTracker('book', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <button class="nav-arrow up" onclick="window.navTracker('book', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
                             <span style="font-weight:bold; white-space:nowrap;">${match[1]}</span>
-                            <button class="nav-arrow down" onclick="navTracker('book', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                            <button class="nav-arrow down" onclick="window.navTracker('book', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
                         </div>
                         
                         <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
-                            <button class="nav-arrow up" onclick="navTracker('chapter', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <button class="nav-arrow up" onclick="window.navTracker('chapter', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
                             <span style="font-weight:bold; white-space:nowrap;">Cap. ${match[2]}</span>
-                            <button class="nav-arrow down" onclick="navTracker('chapter', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                            <button class="nav-arrow down" onclick="window.navTracker('chapter', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
                         </div>
                         
                         <div style="display:flex; flex-direction:column; align-items:center;">
-                            <button class="nav-arrow up" onclick="navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
+                            <button class="nav-arrow up" onclick="window.navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
                             <span style="font-weight:bold; white-space:nowrap;">Ver. ${match[3]}</span>
-                            <button class="nav-arrow down" onclick="navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                            <button class="nav-arrow down" onclick="window.navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
                         </div>
                         
-                        <button class="nav-arrow right" onclick="navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-left:5px;">▶</button>
+                        <button class="nav-arrow right" onclick="window.navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-left:5px;">▶</button>
                     </div>
                 `;
             };
@@ -241,11 +241,15 @@
                 });
                 
                 let activeVerse = null;
-                let minTop = Infinity;
+                let minDiff = Infinity;
+                let centerY = window.innerHeight / 2;
+                
                 currentlyVisibleVerses.forEach(el => {
                     let rect = el.getBoundingClientRect();
-                    if (rect.top >= 0 && rect.top < minTop) {
-                        minTop = rect.top;
+                    let elCenter = rect.top + rect.height / 2;
+                    let diff = Math.abs(elCenter - centerY);
+                    if (diff < minDiff) {
+                        minDiff = diff;
                         activeVerse = el;
                     }
                 });
@@ -256,9 +260,9 @@
                 
                 if (activeVerse) {
                     activeVerse.classList.add('active-reading');
-                    updateTracker(activeVerse.dataset.ref);
+                    if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
                 }
-            }, { rootMargin: '-10% 0px -50% 0px' });
+            }, { rootMargin: '-20% 0px -20% 0px' });
 
             verses.forEach(v => {
                 let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
@@ -289,6 +293,7 @@
                 let span = document.createElement('span');
                 span.className = (bFiltered.length > 0 || pFiltered.length > 0) ? 'verse-text-span tooltip' : 'verse-text-span';
                 span.dataset.ref = `${v.book || ''} ${v.reference || ''}`;
+                span.dataset.version = v.version || '';
                 let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
                 span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
                 span.onclick = () => viewSingleVerse(v.id);
@@ -319,72 +324,148 @@
         };
 
         window.navTracker = (type, dir) => {
-            if (!window.currentTrackerRef) return;
-            let { book, chapter, verse } = window.currentTrackerRef;
-            let bIdx = BIBLE_BOOKS.indexOf(normalizeBookName(book));
-            if (bIdx === -1) return;
-            
-            if (type === 'book') {
-                bIdx += dir;
-                if (bIdx < 0 || bIdx >= BIBLE_BOOKS.length) return;
-                book = BIBLE_BOOKS[bIdx];
-            } else if (type === 'chapter') {
-                chapter += dir;
-            } else if (type === 'verse') {
-                verse += dir;
+            try {
+                if (!window.currentTrackerRef) { alert("Ref null"); return; }
+                let { book, chapter, verse } = window.currentTrackerRef;
+                let bIdx = BIBLE_BOOKS.indexOf(normalizeBookName(book));
+                if (bIdx === -1) { alert("Libro no encontrado en índice"); return; }
+                
+                if (type === 'book') {
+                    bIdx += dir;
+                    if (bIdx < 0 || bIdx >= BIBLE_BOOKS.length) return;
+                    book = BIBLE_BOOKS[bIdx];
+                } else if (type === 'chapter') {
+                    chapter += dir;
+                } else if (type === 'verse') {
+                    verse += dir;
+                }
+                
+                window.navToBCV(book, chapter, verse);
+            } catch(e) {
+                alert("Error navTracker: " + e.message);
             }
-            
-            navToBCV(book, chapter, verse);
         };
 
         window.navToBCV = (bName, cNum, vNum) => {
-            let bReal = normalizeBookName(bName);
-            let version = currentData.length > 0 ? currentData[0].version : "RV1960";
-            let all = currentData.filter(x => x.type === 'verse' && x.version === version);
-            
-            let inBook = all.filter(x => normalizeBookName(x.book) === bReal);
-            if (inBook.length === 0) return;
-            
-            let maxChap = Math.max(...inBook.map(x => parseInt(x.chapter)));
-            if (cNum > maxChap) cNum = maxChap;
-            if (cNum < 1) cNum = 1;
-            
-            let inChap = inBook.filter(x => parseInt(x.chapter) === cNum);
-            if (inChap.length === 0) return;
-            
-            let maxVerse = Math.max(...inChap.map(x => parseInt((x.reference||':0').split(':')[1])));
-            if (vNum > maxVerse) vNum = maxVerse;
-            if (vNum < 1) vNum = 1;
-            
-            // Re-render the chapter view
-            let newBookOriginal = inChap[0].book;
-            viewReading(`${newBookOriginal} ${cNum}`, inChap, { type: 'chapter', version: version, book: newBookOriginal, chapter: cNum.toString() });
-            
-            setTimeout(() => scrollToVerseAndHighlight(bReal, cNum, vNum), 100);
+            try {
+                let bReal = normalizeBookName(bName);
+                // Obtener versión del trackerRef o del primer versículo en currentData
+                let version = (window.currentTrackerRef && window.currentTrackerRef.version) || null;
+                let allVerses = currentData.filter(x => x.type === 'verse');
+                if (!version && allVerses.length > 0) version = allVerses[0].version;
+                let all = version ? allVerses.filter(x => x.version === version) : allVerses;
+                
+                let inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                if (inBook.length === 0) {
+                    // Intentar sin normalización estricta (buscar por includes)
+                    inBook = all.filter(x => x.book && normalizeBookName(x.book).includes(bReal.substring(0,5)));
+                    if (inBook.length === 0) { alert(`Libro vacío: '${bReal}' en ${all.length} versículos`); return; }
+                }
+                
+                const getC = (x) => parseInt(x.chapter) || parseInt((x.reference||'0:0').split(':')[0]);
+                const getV = (x) => parseInt((x.reference||'0:0').split(':')[1]);
+
+                let maxChap = Math.max(...inBook.map(getC));
+                if (cNum > maxChap) { cNum = 1; let bIdx = BIBLE_BOOKS.indexOf(bReal); if(bIdx < BIBLE_BOOKS.length-1) bReal = BIBLE_BOOKS[bIdx+1]; inBook = all.filter(x => normalizeBookName(x.book) === bReal); maxChap = Math.max(...inBook.map(getC)); }
+                if (cNum < 1) { let bIdx = BIBLE_BOOKS.indexOf(bReal); if(bIdx > 0) bReal = BIBLE_BOOKS[bIdx-1]; inBook = all.filter(x => normalizeBookName(x.book) === bReal); maxChap = Math.max(...inBook.map(getC)); cNum = maxChap; }
+                
+                let inChap = inBook.filter(x => getC(x) === cNum);
+                if (inChap.length === 0) { alert("Capitulo vacio"); return; }
+                
+                let maxVerse = Math.max(...inChap.map(getV));
+                if (vNum > maxVerse) {
+                    if (cNum < maxChap) {
+                        cNum++;
+                        vNum = 1;
+                        inChap = inBook.filter(x => getC(x) === cNum);
+                    } else {
+                        let bIdx = BIBLE_BOOKS.indexOf(bReal);
+                        if(bIdx < BIBLE_BOOKS.length-1) {
+                            bReal = BIBLE_BOOKS[bIdx+1];
+                            cNum = 1;
+                            vNum = 1;
+                            inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                            inChap = inBook.filter(x => getC(x) === cNum);
+                        } else {
+                            vNum = maxVerse;
+                        }
+                    }
+                } else if (vNum < 1) {
+                    if (cNum > 1) {
+                        cNum--;
+                        let prevChap = inBook.filter(x => getC(x) === cNum);
+                        vNum = Math.max(...prevChap.map(getV));
+                        inChap = prevChap;
+                    } else {
+                        let bIdx = BIBLE_BOOKS.indexOf(bReal);
+                        if(bIdx > 0) {
+                            bReal = BIBLE_BOOKS[bIdx-1];
+                            inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                            cNum = Math.max(...inBook.map(getC));
+                            inChap = inBook.filter(x => getC(x) === cNum);
+                            vNum = Math.max(...inChap.map(getV));
+                        } else {
+                            vNum = 1;
+                        }
+                    }
+                }
+                
+                let isAlreadyRendered = false;
+                let sampleVerse = document.querySelector('.verse-text-span');
+                if (sampleVerse && sampleVerse.dataset.ref) {
+                    let match = sampleVerse.dataset.ref.match(/^(.*?)\s+(\d+):/);
+                    if (match && normalizeBookName(match[1]) === bReal && parseInt(match[2]) === cNum) {
+                        isAlreadyRendered = true;
+                    }
+                }
+                
+                if (isAlreadyRendered) {
+                    if(window.currentTrackerRef) window.currentTrackerRef.verse = vNum;
+                    window.scrollToVerseAndHighlight(bReal, cNum, vNum);
+                } else {
+                    let newBookOriginal = inChap[0].book;
+                    window.viewReading(`${newBookOriginal} ${cNum}`, inChap, { type: 'chapter', version: version, book: newBookOriginal, chapter: cNum.toString() });
+                    setTimeout(() => window.scrollToVerseAndHighlight(bReal, cNum, vNum), 150);
+                }
+            } catch(e) {
+                alert("Error navToBCV: " + e.message);
+            }
         };
 
         window.scrollToVerseAndHighlight = (bReal, cNum, vNum) => {
-            let spans = document.querySelectorAll('.verse-text-span');
-            for (let span of spans) {
-                let ref = span.dataset.ref; 
-                if (ref) {
-                    let match = ref.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
-                    if (match && normalizeBookName(match[1]) === bReal && parseInt(match[2]) === cNum && parseInt(match[3]) === vNum) {
-                        window.manualHighlightMode = true;
-                        document.querySelectorAll('.active-reading').forEach(el => el.classList.remove('active-reading'));
-                        span.classList.add('active-reading');
-                        span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            try {
+                let spans = document.querySelectorAll('.verse-text-span');
+                let found = false;
+                for (let span of spans) {
+                    let ref = span.dataset.ref; 
+                    if (ref) {
+                        let match = ref.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
+                        if (match && normalizeBookName(match[1]) === bReal && parseInt(match[2]) === cNum && parseInt(match[3]) === vNum) {
+                            window.manualHighlightMode = true;
+                            document.querySelectorAll('.active-reading').forEach(el => el.classList.remove('active-reading'));
+                            span.classList.add('active-reading');
+                            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            if(window.globalUpdateTracker) window.globalUpdateTracker(ref, span.dataset.version);
                         
                         clearTimeout(window.manualHighlightTimer);
                         window.manualHighlightTimer = setTimeout(() => {
                             window.manualHighlightMode = false;
-                            // Trigger observer manually
-                            window.scrollBy(0, 1);
-                            window.scrollBy(0, -1);
                         }, 1000);
-                        break;
+                            found = true;
+                            break;
+                        }
                     }
                 }
+                if(!found) {
+                    // Si no lo encuentra, intentar buscar el más cercano o simplemente forzar actualización del tracker con lo que sabemos
+                    // Por si vNum es mayor a los versículos renderizados por algún error en la data
+                    if(window.globalUpdateTracker && inChap && inChap.length > 0) {
+                        // find closest
+                    }
+                }
+            } catch(e) {
+                alert("Error scrollToVerse: " + e.message);
             }
         };
 
