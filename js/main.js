@@ -134,4 +134,34 @@
                 }
             });
         }
-
+
+        // Mobile Sidebar Toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnMenu = document.getElementById('btn-menu-toggle');
+            const sidebar = document.getElementById('main-sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            if (btnMenu && sidebar && overlay) {
+                const closeSidebar = () => {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                };
+
+                btnMenu.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevenir conflicto con app-title
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('active');
+                });
+                
+                overlay.addEventListener('click', closeSidebar);
+
+                // Auto-cerrar sidebar en móvil al seleccionar un capítulo o botón de acción
+                sidebar.addEventListener('click', (e) => {
+                    if (window.innerWidth <= 768) {
+                        if (e.target.closest('.tree-item') || e.target.closest('.btn-ui')) {
+                            setTimeout(closeSidebar, 150);
+                        }
+                    }
+                });
+            }
+        });

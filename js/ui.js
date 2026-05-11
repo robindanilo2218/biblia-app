@@ -5,7 +5,7 @@
                 if (last.fn === fn && JSON.stringify(last.params) === JSON.stringify(params)) return;
             }
             historyStack.push({ fn, params });
-            if (btnBack) btnBack.style.display = historyStack.length > 1 ? 'block' : 'none';
+            if (btnBack) btnBack.style.display = historyStack.length > 1 ? 'flex' : 'none';
         };
 
         if (btnBack) {
@@ -15,7 +15,7 @@
                     let prev = historyStack[historyStack.length - 1];
                     window[prev.fn](...prev.params, true);
                 }
-                btnBack.style.display = historyStack.length > 1 ? 'block' : 'none';
+                btnBack.style.display = historyStack.length > 1 ? 'flex' : 'none';
             };
         }
 
@@ -33,13 +33,29 @@
         const floatTip = document.getElementById('floating-tooltip');
         window._positionFloatTip = (e) => {
             if (!floatTip || floatTip.style.display === 'none') return;
-            const margin = 18, tw = 340;
-            const th = floatTip.offsetHeight || 180;
-            let x = e.clientX + margin;
-            let y = e.clientY - 30;
-            if (x + tw > window.innerWidth - margin) x = e.clientX - tw - margin;
-            if (y + th > window.innerHeight - 8) y = window.innerHeight - th - 8;
-            if (y < 8) y = 8;
+            const margin = 18;
+            const gapY = 25; // Separación para no tapar la lectura (una línea)
+            const tw = floatTip.offsetWidth;
+            const th = floatTip.offsetHeight;
+            
+            // Horizontal: centrar respecto al cursor, respetando bordes
+            let x = e.clientX - (tw / 2);
+            if (x < margin) x = margin;
+            if (x + tw > window.innerWidth - margin) x = window.innerWidth - tw - margin;
+            
+            // Vertical: por defecto abajo del cursor, si no cabe, lo pasa arriba
+            let y = e.clientY + gapY;
+            if (y + th > window.innerHeight - margin) {
+                let yAbove = e.clientY - th - gapY;
+                if (yAbove > margin) {
+                    y = yAbove;
+                } else {
+                    // Si el tooltip es inmenso, lo pegamos al borde
+                    y = window.innerHeight - th - margin;
+                    if (y < margin) y = margin;
+                }
+            }
+            
             floatTip.style.left = x + 'px';
             floatTip.style.top = y + 'px';
         };
@@ -237,10 +253,12 @@
                     <div id="read-text"></div>
                 </div>`;
 
-            // Event listeners rango de versículos
-            const btnRangeToggle = document.getElementById('btn-range-toggle');
-            if(btnRangeToggle) {
-                btnRangeToggle.onclick = () => {
+            // Event listeners rango de versículos (delegado para soportar recreación del DOM)
+            const trackerBarEvt = document.getElementById('sticky-tracker-bar');
+            if(trackerBarEvt) {
+                trackerBarEvt.onclick = (ev) => {
+                    const btn = ev.target.closest('#btn-range-toggle');
+                    if (!btn) return;
                     const rb = document.getElementById('range-selector-bar');
                     if (!rb) return;
                     rb.style.display = rb.style.display === 'none' ? 'flex' : 'none';

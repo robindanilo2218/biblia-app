@@ -15,9 +15,53 @@
                 tree[ver][info.testament][info.category][v.book][v.chapter].push(v);
             });
 
+            const sortBooks = (a, b) => {
+                let idxA = BIBLE_BOOKS.indexOf(normalizeBookName(a));
+                let idxB = BIBLE_BOOKS.indexOf(normalizeBookName(b));
+                if(idxA === -1) idxA = 999;
+                if(idxB === -1) idxB = 999;
+                return idxA - idxB;
+            };
+
             for (let ver in tree) {
                 let dVer = document.createElement('details'); dVer.open = true; dVer.innerHTML = `<summary>📖 ${ver}</summary>`;
+                
+                // 1. Crear el Índice Canónico
+                let dIndex = document.createElement('details'); dIndex.innerHTML = `<summary>📑 Índice</summary>`;
+                let allBooksForVer = {};
                 for (let test in tree[ver]) {
+                    for (let cat in tree[ver][test]) {
+                        for (let book in tree[ver][test][cat]) {
+                            allBooksForVer[book] = tree[ver][test][cat][book];
+                        }
+                    }
+                }
+                let sortedAllBooks = Object.keys(allBooksForVer).sort(sortBooks);
+                sortedAllBooks.forEach(book => {
+                    let dBook = document.createElement('details'); dBook.innerHTML = `<summary>📘 ${book}</summary>`;
+                    dBook.querySelector('summary').onclick = (e) => {
+                        e.preventDefault(); dBook.open = !dBook.open;
+                        if (dBook.open) {
+                            let all = []; Object.values(allBooksForVer[book]).forEach(c => all.push(...c));
+                            viewReading(book, all, { type: 'book', version: ver, book: book });
+                        }
+                    };
+                    dBook.ontoggle = () => {
+                        if (dBook.open && dBook.children.length === 1) {
+                            Object.keys(allBooksForVer[book]).sort((a, b) => parseInt(a) - parseInt(b)).forEach(c => {
+                                let dCap = document.createElement('div'); dCap.className = 'tree-item'; dCap.textContent = `Capítulo ${c}`;
+                                dCap.onclick = (ev) => { ev.stopPropagation(); viewReading(`${book} ${c}`, allBooksForVer[book][c], { type: 'chapter', version: ver, book: book, chapter: c }); };
+                                dBook.appendChild(dCap);
+                            });
+                        }
+                    };
+                    dIndex.appendChild(dBook);
+                });
+                dVer.appendChild(dIndex);
+
+                // 2. Orden de Testamentos y Categorías
+                let testaments = Object.keys(tree[ver]).sort((a,b) => a.includes("Antiguo") ? -1 : 1);
+                testaments.forEach(test => {
                     let dTest = document.createElement('details'); dTest.open = true; dTest.innerHTML = `<summary>📜 ${test}</summary>`;
                     dTest.querySelector('summary').onclick = (e) => {
                         e.preventDefault(); dTest.open = !dTest.open;
@@ -35,7 +79,9 @@
                                 viewReading(cat, all, { type: 'category', version: ver, testament: test, category: cat });
                             }
                         };
-                        for (let book in tree[ver][test][cat]) {
+                        
+                        let sortedBooksInCat = Object.keys(tree[ver][test][cat]).sort(sortBooks);
+                        sortedBooksInCat.forEach(book => {
                             let dBook = document.createElement('details'); dBook.innerHTML = `<summary>📘 ${book}</summary>`;
                             dBook.querySelector('summary').onclick = (e) => {
                                 e.preventDefault(); dBook.open = !dBook.open;
@@ -44,7 +90,6 @@
                                     viewReading(book, all, { type: 'book', version: ver, testament: test, category: cat, book: book });
                                 }
                             };
-                            // Lazy render chapters
                             dBook.ontoggle = () => {
                                 if (dBook.open && dBook.children.length === 1) {
                                     Object.keys(tree[ver][test][cat][book]).sort((a, b) => parseInt(a) - parseInt(b)).forEach(c => {
@@ -55,11 +100,11 @@
                                 }
                             };
                             dCat.appendChild(dBook);
-                        }
+                        });
                         dTest.appendChild(dCat);
                     }
                     dVer.appendChild(dTest);
-                }
+                });
                 sidebarContent.appendChild(dVer);
             }
         }
