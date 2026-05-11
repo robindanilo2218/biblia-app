@@ -63,16 +63,38 @@
 
             mainView.innerHTML = `
                 <div class="verse-card">
-                    <h2>${v.book} ${v.reference}</h2>
-                    <p style="font-size:1.4rem; font-style:italic;">"${v.text || ''}"</p>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+                        <h2 style="margin:0;">${v.book} ${v.reference}</h2>
+                        <button id="btn-ver-capitulo" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem;font-weight:bold;flex-shrink:0;">📖 Ver Capítulo</button>
+                    </div>
+                    <p style="font-size:1.4rem; font-style:italic; margin-top:12px;">&ldquo;${v.text || ''}&rdquo;</p>
                     ${v.tags && v.tags.length > 0 ? `<div class="verse-tags">${v.tags.map(t => `<span>#${t}</span>`).join('')}</div>` : ''}
                 </div>
                 <div id="v-sections">
-                    ${v.base_perspectives ? `<h3 class="study-section-title">📚 Estudio Bíblico</h3><div class="perspective-selector" id="b-btns"></div><div id="b-cont" class="perspective-content" style="display:none; border-color:var(--secondary);"></div>` : ''}
-                    <h3 class="study-section-title">✍️ Mis Notas Personales</h3><div class="perspective-selector" id="p-btns"></div><div id="p-cont" class="perspective-content" style="display:none;"></div>
+                    ${v.base_perspectives ? `<h3 class="study-section-title">📚 Notas de Estudio <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">(libro/capítulo)</span></h3><div class="perspective-selector" id="b-btns"></div><div id="b-cont" class="perspective-content" style="display:none; border-color:var(--secondary);"></div>` : ''}
+                    <h3 class="study-section-title">✍️ Mis Notas Personales <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">(este versículo)</span></h3><div class="perspective-selector" id="p-btns"></div><div id="p-cont" class="perspective-content" style="display:none;"></div>
                     ${v.cross_references && v.cross_references.length > 0 ? `<h3 class="study-section-title">🔗 Referencias Cruzadas</h3><div id="cross-ref-list" style="margin-top:8px;"></div>` : ''}
                 </div>
             `;
+            // Botón Ver Capítulo
+            const btnVerCap = document.getElementById('btn-ver-capitulo');
+            if (btnVerCap) {
+                btnVerCap.onmouseenter = () => btnVerCap.style.opacity = '0.85';
+                btnVerCap.onmouseleave = () => btnVerCap.style.opacity = '1';
+                btnVerCap.onclick = () => {
+                    const chapNum = parseInt((v.reference || '').split(':')[0]) || parseInt(v.chapter) || 1;
+                    const allVersesInChap = currentData.filter(x =>
+                        x.type === 'verse' && normalizeBookName(x.book) === normalizeBookName(v.book) &&
+                        (parseInt(x.chapter) === chapNum || parseInt((x.reference||'').split(':')[0]) === chapNum)
+                    );
+                    if (allVersesInChap.length > 0) {
+                        window.viewReading(`${v.book} ${chapNum}`, allVersesInChap,
+                            { type: 'chapter', version: v.version, book: v.book, chapter: chapNum.toString() });
+                        const verseNum = parseInt((v.reference || '').split(':')[1]) || 1;
+                        setTimeout(() => window.scrollToVerseAndHighlight(normalizeBookName(v.book), chapNum, verseNum), 200);
+                    }
+                };
+            }
             setEditor({ type: 'verse', id: v.id }, "Título de mi nota personal...");
 
             const fill = (data, btnDivId, contDivId, isBase) => {
@@ -276,8 +298,6 @@
                 const match = refStr.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
                 if (!match) return;
                 window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
-                const t = document.getElementById('tracker-ref');
-                if (!t) return;
 
                 // Calcular límites dinámicos para el libro/capítulo actual
                 const allVerses = currentData.filter(x => x.type === 'verse');
@@ -330,8 +350,8 @@
                     trackerBarEl.style.display = 'flex';
                 }
                 // Limpiar también tracker-ref si existe (por compatibilidad)
-                const t = document.getElementById('tracker-ref');
-                if (t) t.style.display = 'none';
+                const oldT = document.getElementById('tracker-ref');
+                if (oldT) oldT.style.display = 'none';
 
 
                 // ── Lógica del autocompletar de Libro ──────────────────────────────
@@ -498,18 +518,17 @@
                 }
                 let pFiltered = v.perspectives ? Object.entries(v.perspectives).map(([k,val]) => `<b>${k.replace(/_/g,' ').toUpperCase()}:</b><br>${val}`) : [];
                 
-                // Construir tooltip: tags + notas únicas + referencias cruzadas con contenido
+                // Tooltip: SOLO referencias cruzadas + tags (las notas de estudio son del capítulo, no del versículo)
                 let ttParts = [];
                 if (v.tags?.length) ttParts.push(`<span style="font-size:0.8em;opacity:0.75;">${v.tags.map(t=>'#'+t).join(' ')}</span>`);
-                if (bFiltered.length) ttParts.push(...bFiltered);
+                // Notas personales del versículo (perspectives) sí pueden aparecer en tooltip
                 if (pFiltered.length) ttParts.push(...pFiltered);
 
                 // Referencias cruzadas con texto — búsqueda O(1) con el mapa preconstruido
                 if (v.cross_references?.length) {
                     let crHtml = '<b>🔗 REFERENCIAS:</b>';
                     let lastCrBook = null, lastCrChap = null;
-                    // Limitar a 4 refs en el tooltip para no retrasar el render
-                    v.cross_references.slice(0, 4).forEach(ref => {
+                    v.cross_references.slice(0, 6).forEach(ref => {
                         const m = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
                         if (!m) return;
                         const found = findVerseByRef(ref);
@@ -521,9 +540,13 @@
                 }
 
                 const tt = ttParts.join('<hr style="margin:4px 0;opacity:0.3;">');
-                const hasDot = bFiltered.length > 0 || pFiltered.length > 0;
-                const hasRef = v.cross_references?.length > 0;
-                const dot = (hasDot ? `<span class="has-persp-dot base"></span>` : '') + (hasRef ? `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;"></span>` : '');
+                const hasDot   = pFiltered.length > 0;                          // nota personal del vers.
+                const hasStudy = v.base_perspectives && Object.keys(v.base_perspectives).length > 0; // notas de capítulo
+                const hasRef   = v.cross_references?.length > 0;                // referencias cruzadas
+                // ● naranja = notas de estudio (cap/libro)  ● verde = nota personal  ● azul = ref cruzada
+                const dot = (hasStudy ? `<span class="has-persp-dot base" title="Notas de estudio"></span>` : '')
+                          + (hasDot   ? `<span class="has-persp-dot" style="background:#27ae60;width:6px;height:6px;" title="Nota personal"></span>` : '')
+                          + (hasRef   ? `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;" title="Referencias cruzadas"></span>` : '');
                 
                 let span = document.createElement('span');
                 span.className = 'verse-text-span';
