@@ -30,12 +30,16 @@ const VERSE_READ_DELAY = 2200;
         let autoReadingFontSizeKey = 'normal';
         let autoReadingFontSizeValue = 1.5;
         let autoReadingActive = false;
+        let speechReadingActive = false;
+        let speechRefIndex = 0;
+        let speechUtterance = null;
+        const speechSupported = typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
         const AUTO_READING_SPEEDS = {
-            'muy-lento': { label: 'Muy lento', value: 4500 },
-            'lento': { label: 'Lento', value: 3200 },
-            'normal': { label: 'Normal', value: 2200 },
-            'rapido': { label: 'Rápido', value: 1500 },
-            'muy-rapido': { label: 'Muy rápido', value: 900 }
+            'muy-lento': { label: 'Muy lento', value: 4500, speechRate: 0.75 },
+            'lento': { label: 'Lento', value: 3200, speechRate: 0.9 },
+            'normal': { label: 'Normal', value: 2200, speechRate: 1 },
+            'rapido': { label: 'Rápido', value: 1500, speechRate: 1.2 },
+            'muy-rapido': { label: 'Muy rápido', value: 900, speechRate: 1.35 }
         };
         const AUTO_READING_FONT_SIZES = {
             'normal': { label: 'Normal', value: 1 },
@@ -49,6 +53,7 @@ const VERSE_READ_DELAY = 2200;
             const toggle = trackerBar ? trackerBar.querySelector('#btn-reading-toggle') : null;
             const speed = trackerBar ? trackerBar.querySelector('#reading-speed-select') : null;
             const fontSize = trackerBar ? trackerBar.querySelector('#reading-font-size-select') : null;
+            const floatingBtn = document.getElementById('floating-read-btn');
             if (toggle) {
                 toggle.textContent = autoReadingActive ? '⏸ Detener' : '▶ Leer';
                 toggle.title = autoReadingActive ? 'Pausar lectura automática' : 'Iniciar lectura automática';
@@ -56,6 +61,12 @@ const VERSE_READ_DELAY = 2200;
             }
             if (speed) speed.value = autoReadingSpeedKey;
             if (fontSize) fontSize.value = autoReadingFontSizeKey;
+            if (floatingBtn) {
+                floatingBtn.textContent = autoReadingActive ? '⏸' : '▶';
+                floatingBtn.classList.toggle('active', autoReadingActive);
+                const showFloating = window.innerWidth <= 768 && trackerBar && trackerBar.style.display !== 'none';
+                floatingBtn.style.display = showFloating ? 'flex' : 'none';
+            }
         };
 
         window.setReadingAutoSpeed = (key) => {
@@ -115,6 +126,7 @@ const VERSE_READ_DELAY = 2200;
 
         window.startReadingAutoPlay = () => {
             if (autoReadingActive) return;
+            if (speechReadingActive) window.stopSpeechRead();
             autoReadingActive = true;
             window.updateReadingAutoControls();
             window.advanceReadingAutoPlay();
@@ -123,6 +135,77 @@ const VERSE_READ_DELAY = 2200;
         window.toggleReadingAutoPlay = () => {
             if (autoReadingActive) window.stopReadingAutoPlay();
             else window.startReadingAutoPlay();
+        };
+
+        const getVisibleVerseSpans = () => Array.from(document.querySelectorAll('.verse-text-span')).filter(span => span.offsetParent !== null);
+        const getCurrentSpeechIndex = () => {
+            const spans = getVisibleVerseSpans();
+            const active = document.querySelector('.verse-text-span.active-reading');
+            if (active) {
+                const idx = spans.indexOf(active);
+                return idx >= 0 ? idx : 0;
+            }
+            return 0;
+        };
+
+        const speakSpanAtIndex = (index) => {
+            const spans = getVisibleVerseSpans();
+            if (!speechSupported || index < 0 || index >= spans.length) {
+                window.stopSpeechRead();
+                return;
+            }
+            speechRefIndex = index;
+            const span = spans[speechRefIndex];
+            const textContent = span.textContent || span.innerText || '';
+            const text = `${span.dataset.ref || ''}. ${textContent.replace(/\s+/g, ' ').trim()}`;
+            if (speechUtterance) {
+                window.speechSynthesis.cancel();
+            }
+            speechUtterance = new SpeechSynthesisUtterance(text);
+            speechUtterance.rate = AUTO_READING_SPEEDS[autoReadingSpeedKey]?.speechRate || 1;
+            speechUtterance.onend = () => {
+                const nextIndex = speechRefIndex + 1;
+                const nextSpans = getVisibleVerseSpans();
+                if (speechReadingActive && nextIndex < nextSpans.length) {
+                    speakSpanAtIndex(nextIndex);
+                } else {
+                    window.stopSpeechRead();
+                }
+            };
+            speechUtterance.onerror = () => {
+                window.stopSpeechRead();
+            };
+            window.speechSynthesis.speak(speechUtterance);
+            if (span) {
+                document.querySelectorAll('.verse-text-span.selected-verse').forEach(el => el.classList.remove('selected-verse'));
+                span.classList.add('selected-verse');
+                span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        window.startSpeechRead = () => {
+            if (!speechSupported || speechReadingActive) return;
+            if (autoReadingActive) window.stopReadingAutoPlay();
+            speechReadingActive = true;
+            speechRefIndex = getCurrentSpeechIndex();
+            window.updateReadingAutoControls();
+            speakSpanAtIndex(speechRefIndex);
+        };
+
+        window.stopSpeechRead = () => {
+            if (!speechSupported) return;
+            speechReadingActive = false;
+            if (speechUtterance) {
+                window.speechSynthesis.cancel();
+                speechUtterance = null;
+            }
+            window.updateReadingAutoControls();
+        };
+
+        window.toggleSpeechRead = () => {
+            if (!speechSupported) return;
+            if (speechReadingActive) window.stopSpeechRead();
+            else window.startSpeechRead();
         };
 
         const pushHistory = (fn, params) => {
@@ -184,8 +267,19 @@ const VERSE_READ_DELAY = 2200;
             const SHORT_HOLD = 300; // 300ms para mostrar la burbuja amarilla
             const DOUBLE_TAP = 300; // Tiempo máximo entre dos toques rápidos
 
+            let isActionButtonTouch = false;
+            const getActionButton = (node) => {
+                if (!node || !node.closest) return null;
+                return node.closest('button.add-to-session-btn, button.add-to-clipboard-btn');
+            };
+
             // A. El dedo TOCA la pantalla
             span.addEventListener('touchstart', (e) => {
+                const actionButton = getActionButton(e.target) || getActionButton(e.target.parentNode);
+                if (actionButton) {
+                    isActionButtonTouch = true;
+                    return;
+                }
                 touchStartTime = new Date().getTime();
                 longPressTriggered = false;
                 // Iniciamos el cronómetro para la burbuja amarilla
@@ -200,14 +294,19 @@ const VERSE_READ_DELAY = 2200;
             span.addEventListener('touchmove', () => {
                 clearTimeout(touchTimer);
                 span.classList.remove('force-yellow');
+                if (isActionButtonTouch) return;
                 if (currentTooltipTarget === span) {
-                    window._hideFloatTip();
+                    window._hideFloatTip(true);
                     currentTooltipTarget = null;
                 }
             }, { passive: true });
 
             // C. El dedo SUELTA la pantalla
             span.addEventListener('touchend', (e) => {
+                if (isActionButtonTouch) {
+                    isActionButtonTouch = false;
+                    return;
+                }
                 clearTimeout(touchTimer); // Evitar burbujas accidentales si soltó rápido
                 span.classList.remove('force-yellow');
 
@@ -223,16 +322,16 @@ const VERSE_READ_DELAY = 2200;
                 // ¿Fue un Doble Toque Rápido?
                 if (tapLength < DOUBLE_TAP && tapLength > 0) {
                     e.preventDefault();
-                    window._hideFloatTip();
+                    window._hideFloatTip(true);
                     currentTooltipTarget = null;
                     viewSingleVerse(verseId); // Entra a las notas del versículo
                 } else if (touchDuration < SHORT_HOLD && span.dataset.tt) {
                     // Tap corto: alterna tooltip
                     if (currentTooltipTarget === span) {
-                        window._hideFloatTip();
+                        window._hideFloatTip(true);
                         currentTooltipTarget = null;
                     } else {
-                        window._hideFloatTip();
+                        window._hideFloatTip(true);
                         currentTooltipTarget = span;
                         window._showFloatTip({ currentTarget: span, clientX: touchPoint.clientX, clientY: touchPoint.clientY });
                     }
@@ -531,7 +630,7 @@ const VERSE_READ_DELAY = 2200;
             const trackerBar = document.getElementById('sticky-tracker-bar');
             if (trackerBar) {
                 trackerBar.style.display = 'flex';
-                trackerBar.innerHTML = `<div id="tracker-ref" class="tracker-info" style="flex:1;">${title}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><button id="btn-reading-toggle" title="Iniciar lectura automática" style="background:var(--secondary);border:none;border-radius:6px;padding:6px 12px;color:white;font-weight:bold;cursor:pointer;flex-shrink:0;">▶ Leer</button><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Velocidad:<select id="reading-speed-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="muy-lento">Muy lento</option> <option value="lento">Lento</option> <option value="normal" selected>Normal</option> <option value="rapido">Rápido</option> <option value="muy-rapido">Muy rápido</option> </select></label><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Tamaño:<select id="reading-font-size-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="normal">Normal</option> <option value="x1.5">1.5×</option> <option value="x2">2×</option> <option value="x3">3×</option> </select></label></div><button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 10px;color:white;font-weight:bold;cursor:pointer;font-size:0.9rem;flex-shrink:0;">⊟ Rango</button>`;
+                trackerBar.innerHTML = `<div id="tracker-ref" class="tracker-info" style="flex:1;">${title}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><button id="btn-reading-toggle" title="Iniciar lectura automática" style="background:var(--secondary);border:none;border-radius:6px;padding:6px 12px;color:white;font-weight:bold;cursor:pointer;flex-shrink:0;">▶ Leer</button><button id="btn-speech-toggle" title="Leer en voz alta" style="background:var(--secondary);border:none;border-radius:6px;padding:6px 12px;color:white;font-weight:bold;cursor:pointer;flex-shrink:0;">🔊 Voz</button><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Velocidad:<select id="reading-speed-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="muy-lento">Muy lento</option> <option value="lento">Lento</option> <option value="normal" selected>Normal</option> <option value="rapido">Rápido</option> <option value="muy-rapido">Muy rápido</option> </select></label><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Tamaño:<select id="reading-font-size-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="normal">Normal</option> <option value="x1.5">1.5×</option> <option value="x2">2×</option> <option value="x3">3×</option> </select></label></div><button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 10px;color:white;font-weight:bold;cursor:pointer;font-size:0.9rem;flex-shrink:0;">⊟ Rango</button>`;
                 window.updateReadingAutoControls();
                 window.setReadingAutoFontSize(autoReadingFontSizeKey);
             }
@@ -554,6 +653,11 @@ const VERSE_READ_DELAY = 2200;
                     const playBtn = ev.target.closest('#btn-reading-toggle');
                     if (playBtn) {
                         window.toggleReadingAutoPlay();
+                        return;
+                    }
+                    const speechBtn = ev.target.closest('#btn-speech-toggle');
+                    if (speechBtn) {
+                        window.toggleSpeechRead();
                         return;
                     }
                     const btn = ev.target.closest('#btn-range-toggle');
