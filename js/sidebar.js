@@ -200,6 +200,7 @@
                                     // Agregar al readText existente
                                     const readText = document.getElementById('read-text');
                                     if (readText) {
+                                        let loadBtn = document.getElementById('load-more-btn');
                                         pageItems.forEach(v => {
                                             const sp = document.createElement('span');
                                             sp.className = 'verse-text-span';
@@ -207,7 +208,11 @@
                                             const vn = (v.reference||'').split(':')[1] || '';
                                             sp.innerHTML = `<span class="verse-num">${vn}</span>${window.formatVerseText ? window.formatVerseText(v.text) : (v.text || '')}`;
                                             sp.onclick = () => window.viewSingleVerse(v.id);
-                                            readText.appendChild(sp);
+                                            if (loadBtn && loadBtn.parentNode === readText) {
+                                                readText.insertBefore(sp, loadBtn);
+                                            } else {
+                                                readText.appendChild(sp);
+                                            }
                                         });
                                     }
                                 }
@@ -222,6 +227,7 @@
                                 const readText = document.getElementById('read-text');
                                 if (readText) {
                                     const loadMoreBtn = document.createElement('button');
+                                    loadMoreBtn.id = 'load-more-btn';
                                     loadMoreBtn.style.cssText = 'display:block;width:100%;margin:12px 0;padding:10px;background:var(--secondary);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;';
                                     loadMoreBtn.textContent = `Cargar más resultados (${matches.length - PAGE_SIZE} restantes)`;
                                     loadMoreBtn.onclick = () => {
