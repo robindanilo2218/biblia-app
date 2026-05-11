@@ -228,11 +228,27 @@
                     sidebarContent.innerHTML = `
                         <div style="padding:10px;">
                             <button id="btn-new-session" style="width:100%; padding:10px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">➕ Crear Nueva Sesión</button>
+                            <div id="draft-session-info" style="margin-top:10px;"></div>
                             <h4 style="margin-top:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">📅 Mis Sesiones Programadas</h4>
                             <div id="sessions-list" style="margin-top:10px; display:flex; flex-direction:column; gap:5px;"></div>
                         </div>
                     `;
                     const renderSessions = () => {
+                        let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_refs') || '[]');
+                        let draftDiv = document.getElementById('draft-session-info');
+                        if (draftDiv) {
+                            if (draftRefs.length > 0) {
+                                draftDiv.innerHTML = `<div style="background:#fff3cd; padding:10px; border-radius:5px; border-left:4px solid #ffc107; cursor:pointer; font-size:0.9rem;">
+                                    <b style="color:#856404;">📝 Sesión en Construcción</b><br>
+                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Clic para editar.</span>
+                                </div>`;
+                                draftDiv.onclick = () => window.openSessionEditor();
+                            } else {
+                                draftDiv.innerHTML = '';
+                                draftDiv.onclick = null;
+                            }
+                        }
+
                         let sessions = JSON.parse(localStorage.getItem('biblia_sessions') || '[]');
                         const list = document.getElementById('sessions-list');
                         list.innerHTML = '';
