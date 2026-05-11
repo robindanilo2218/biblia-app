@@ -76,19 +76,26 @@
             fill(v.base_perspectives, 'b-btns', 'b-cont', true);
             fill(v.perspectives, 'p-btns', 'p-cont', false);
 
-            // Renderizar referencias cruzadas con contenido real
+            // Renderizar referencias cruzadas con contenido real — mapa O(1)
             if (v.cross_references && v.cross_references.length > 0) {
                 const crList = document.getElementById('cross-ref-list');
                 if (crList) {
+                    // Construir mapa local para búsqueda instantánea
+                    const crMap = new Map();
+                    currentData.forEach(x => {
+                        if (x.type === 'verse' && x.book && x.reference)
+                            crMap.set(`${normalizeBookName(x.book)}_${x.reference}`, x);
+                    });
+                    const findCR = (ref) => {
+                        const m = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
+                        return m ? (crMap.get(`${normalizeBookName(m[1])}_${m[2]}:${m[3]}`) || null) : null;
+                    };
                     let lastBookCr = null, lastChapCr = null;
                     v.cross_references.forEach(ref => {
                         const m = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
                         if (!m) return;
-                        const bName = m[1], chapNum = m[2], verNum = m[3];
-                        const found = currentData.find(x => x.type === 'verse' &&
-                            normalizeBookName(x.book) === normalizeBookName(bName) &&
-                            (x.chapter === chapNum || (x.reference||'').startsWith(chapNum+':')) &&
-                            (x.reference||'').endsWith(':'+verNum));
+                        const bName = m[1], chapNum = m[2];
+                        const found = findCR(ref);
                         
                         // Separador de libro
                         if (bName !== lastBookCr) {
@@ -150,6 +157,23 @@
                 Object.entries(cnt).forEach(([val, c]) => { if (c > 1) rep.add(val); });
                 chapNoteSets[cKey] = rep;
             });
+
+            // Mapa O(1) para buscar versículos por referencia cruzada — CRÍTICO para rendimiento
+            // Sin este mapa, cada tooltip haría hasta 6 × 31,194 comparaciones = el navegador se congela
+            const verseRefMap = new Map();
+            currentData.forEach(x => {
+                if (x.type === 'verse' && x.book && x.reference) {
+                    const key = `${normalizeBookName(x.book)}_${x.reference}`;
+                    if (!verseRefMap.has(key)) verseRefMap.set(key, x);
+                }
+            });
+            // Helper para buscar versículo por referencia tipo "Génesis 1:3" en O(1)
+            const findVerseByRef = (refStr) => {
+                const m = refStr.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
+                if (!m) return null;
+                const key = `${normalizeBookName(m[1])}_${m[2]}:${m[3]}`;
+                return verseRefMap.get(key) || null;
+            };
 
             mainView.innerHTML = `
                 <div class="sticky-tracker" style="display:flex; justify-content:space-between; align-items:center;">
@@ -223,7 +247,7 @@
                 if (n.perspectives) Object.entries(n.perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ ${k}</h4><p>${v}</p></div>`);
             });
 
-            // Tracker de posición
+            // Tracker de posición con autocompletar
             window.currentTrackerRef = null;
             window.globalUpdateTracker = (refStr, version) => {
                 if (!refStr) return;
@@ -232,26 +256,152 @@
                 window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
                 const t = document.getElementById('tracker-ref');
                 if (!t) return;
+
+                // Calcular límites dinámicos para el libro/capítulo actual
+                const allVerses = currentData.filter(x => x.type === 'verse');
+                const bReal = normalizeBookName(match[1]);
+                const inBook = allVerses.filter(x => normalizeBookName(x.book) === bReal);
+                const getC = x => parseInt(x.chapter) || parseInt((x.reference||'0:0').split(':')[0]);
+                const getV = x => parseInt((x.reference||'0:0').split(':')[1]);
+                const maxChap = inBook.length > 0 ? Math.max(...inBook.map(getC)) : 999;
+                const inChapNow = inBook.filter(x => getC(x) === parseInt(match[2]));
+                const maxVerse = inChapNow.length > 0 ? Math.max(...inChapNow.map(getV)) : 999;
+
+                // Lista canónica de nombres para el autocompletar (nombres originales no normalizados)
+                const bookDisplayNames = [...new Set(allVerses.map(x => x.book).filter(Boolean))];
+
                 t.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.85rem;">
-                        <button onclick="window.navTracker('verse',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:1.1rem;">◀</button>
-                        <div style="display:flex;flex-direction:column;align-items:center;">
-                            <button onclick="window.navTracker('book',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
-                            <b style="white-space:nowrap;">${match[1]}</b>
-                            <button onclick="window.navTracker('book',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
+                    <div class="tracker-smart-nav">
+                        <button class="trk-arrow-btn" onclick="window.navTracker('verse',-1)" title="Versículo anterior">◀</button>
+
+                        <div class="trk-field-wrap" id="trk-book-wrap">
+                            <label class="trk-label">Libro</label>
+                            <input id="trk-book-input" class="trk-input" type="text"
+                                value="${match[1]}" autocomplete="off" spellcheck="false"
+                                placeholder="Buscar libro…">
+                            <div id="trk-book-suggestions" class="trk-suggestions"></div>
                         </div>
-                        <div style="display:flex;flex-direction:column;align-items:center;">
-                            <button onclick="window.navTracker('chapter',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
-                            <b style="white-space:nowrap;">Cap.${match[2]}</b>
-                            <button onclick="window.navTracker('chapter',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
+
+                        <div class="trk-field-wrap">
+                            <label class="trk-label">Cap. <span id="trk-chap-hint" class="trk-hint">(máx ${maxChap})</span></label>
+                            <input id="trk-chap-input" class="trk-input trk-num" type="number"
+                                value="${match[2]}" min="1" max="${maxChap}" autocomplete="off">
                         </div>
-                        <div style="display:flex;flex-direction:column;align-items:center;">
-                            <button onclick="window.navTracker('verse',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
-                            <b style="white-space:nowrap;">v.${match[3]}</b>
-                            <button onclick="window.navTracker('verse',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
+
+                        <div class="trk-field-wrap">
+                            <label class="trk-label">Vers. <span id="trk-verse-hint" class="trk-hint">(máx ${maxVerse})</span></label>
+                            <input id="trk-verse-input" class="trk-input trk-num" type="number"
+                                value="${match[3]}" min="1" max="${maxVerse}" autocomplete="off">
                         </div>
-                        <button onclick="window.navTracker('verse',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:1.1rem;">▶</button>
+
+                        <button class="trk-arrow-btn" onclick="window.navTracker('verse',1)" title="Versículo siguiente">▶</button>
                     </div>`;
+
+                // ── Lógica del autocompletar de Libro ──────────────────────────────
+                const bookInput = document.getElementById('trk-book-input');
+                const sugBox    = document.getElementById('trk-book-suggestions');
+                const chapInput = document.getElementById('trk-chap-input');
+                const verseInput= document.getElementById('trk-verse-input');
+                const chapHint  = document.getElementById('trk-chap-hint');
+                const verseHint = document.getElementById('trk-verse-hint');
+
+                const closeSug = () => { sugBox.innerHTML = ''; sugBox.style.display = 'none'; };
+
+                const showSuggestions = (query) => {
+                    const q = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                    // Filtrar por prefijo O por inclusión — también expandir "san " a nombre real
+                    const filtered = bookDisplayNames.filter(b => {
+                        const norm = b.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+                        const normFull = 'san ' + norm;
+                        return norm.includes(q) || normFull.includes(q) || normalizeBookName(b).includes(q);
+                    }).slice(0, 8);
+
+                    if (filtered.length === 0 || (filtered.length === 1 && normalizeBookName(filtered[0]) === normalizeBookName(query))) {
+                        closeSug(); return;
+                    }
+                    sugBox.innerHTML = '';
+                    filtered.forEach(name => {
+                        const item = document.createElement('div');
+                        item.className = 'trk-sug-item';
+                        item.textContent = name;
+                        item.onmousedown = (e) => {
+                            e.preventDefault();
+                            bookInput.value = name;
+                            closeSug();
+                            // Navegar inmediatamente al libro seleccionado
+                            const chapVal = parseInt(chapInput.value) || 1;
+                            const verseVal = parseInt(verseInput.value) || 1;
+                            window.navToBCV(name, chapVal, verseVal);
+                        };
+                        sugBox.appendChild(item);
+                    });
+                    sugBox.style.display = 'block';
+                };
+
+                bookInput.addEventListener('input', () => showSuggestions(bookInput.value));
+                bookInput.addEventListener('focus', () => { if (bookInput.value) showSuggestions(bookInput.value); });
+                bookInput.addEventListener('blur', () => setTimeout(closeSug, 150));
+                bookInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        closeSug();
+                        const chapVal = parseInt(chapInput.value) || 1;
+                        const verseVal = parseInt(verseInput.value) || 1;
+                        window.navToBCV(bookInput.value, chapVal, verseVal);
+                    }
+                    if (e.key === 'Escape') closeSug();
+                });
+
+                // ── Lógica de Capítulo ────────────────────────────────────────────
+                const refreshVerseLimits = () => {
+                    const bName = bookInput.value;
+                    const bR = normalizeBookName(bName);
+                    const inB = allVerses.filter(x => normalizeBookName(x.book) === bR);
+                    const mxC = inB.length > 0 ? Math.max(...inB.map(getC)) : 999;
+                    chapInput.max = mxC;
+                    if (chapHint) chapHint.textContent = `(máx ${mxC})`;
+                    const cNum = parseInt(chapInput.value) || 1;
+                    const inC = inB.filter(x => getC(x) === cNum);
+                    const mxV = inC.length > 0 ? Math.max(...inC.map(getV)) : 999;
+                    verseInput.max = mxV;
+                    if (verseHint) verseHint.textContent = `(máx ${mxV})`;
+                };
+
+                chapInput.addEventListener('change', () => {
+                    let v = parseInt(chapInput.value);
+                    const mx = parseInt(chapInput.max) || 999;
+                    if (isNaN(v) || v < 1) { chapInput.value = 1; v = 1; }
+                    if (v > mx) { chapInput.value = mx; v = mx; }
+                    refreshVerseLimits();
+                });
+                chapInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        let v = parseInt(chapInput.value);
+                        const mx = parseInt(chapInput.max) || 999;
+                        if (isNaN(v) || v < 1) v = 1;
+                        if (v > mx) v = mx;
+                        chapInput.value = v;
+                        refreshVerseLimits();
+                        window.navToBCV(bookInput.value, v, parseInt(verseInput.value) || 1);
+                    }
+                });
+
+                // ── Lógica de Versículo ───────────────────────────────────────────
+                verseInput.addEventListener('change', () => {
+                    let v = parseInt(verseInput.value);
+                    const mx = parseInt(verseInput.max) || 999;
+                    if (isNaN(v) || v < 1) { verseInput.value = 1; v = 1; }
+                    if (v > mx) { verseInput.value = mx; v = mx; }
+                });
+                verseInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        let vv = parseInt(verseInput.value);
+                        const mx = parseInt(verseInput.max) || 999;
+                        if (isNaN(vv) || vv < 1) vv = 1;
+                        if (vv > mx) vv = mx;
+                        verseInput.value = vv;
+                        window.navToBCV(bookInput.value, parseInt(chapInput.value) || 1, vv);
+                    }
+                });
             };
 
             // Observer de lectura activa
@@ -317,17 +467,15 @@
                 if (bFiltered.length) ttParts.push(...bFiltered);
                 if (pFiltered.length) ttParts.push(...pFiltered);
 
-                // Referencias cruzadas con texto del versículo referenciado
+                // Referencias cruzadas con texto — búsqueda O(1) con el mapa preconstruido
                 if (v.cross_references?.length) {
                     let crHtml = '<b>🔗 REFERENCIAS:</b>';
                     let lastCrBook = null, lastCrChap = null;
-                    v.cross_references.slice(0, 6).forEach(ref => {
-                        const m = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+                    // Limitar a 4 refs en el tooltip para no retrasar el render
+                    v.cross_references.slice(0, 4).forEach(ref => {
+                        const m = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
                         if (!m) return;
-                        const found = currentData.find(x => x.type === 'verse' &&
-                            normalizeBookName(x.book) === normalizeBookName(m[1]) &&
-                            (x.reference||'').endsWith(':'+m[3]) &&
-                            (x.chapter === m[2] || (x.reference||'').startsWith(m[2]+':')));
+                        const found = findVerseByRef(ref);
                         if (m[1] !== lastCrBook) { crHtml += `<br><b style="color:#aef;">${m[1]}</b>`; lastCrBook = m[1]; lastCrChap = null; }
                         if (m[2] !== lastCrChap) { crHtml += ` <i>Cap.${m[2]}</i>`; lastCrChap = m[2]; }
                         crHtml += `<br><span style="font-size:0.85em;"><b>${m[3]}.</b> ${found ? found.text : ref}</span>`;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'biblia-estudio-v1';
+const CACHE_NAME = 'biblia-estudio-v3';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -34,19 +34,30 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Stale-While-Revalidate strategy for offline support and background updates
+// Stale-While-Revalidate para assets estáticos, network-only para JSON de datos
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
     
+    const url = event.request.url;
+    // No cachear JSONs de datos grandes (solo cachear assets de la app)
+    const isDataJson = url.endsWith('biblia.json') || url.endsWith('estudiobiblico.json') || url.includes('/api/');
+    if (isDataJson) {
+        event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify([]), {headers:{'Content-Type':'application/json'}})));
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
             const fetchPromise = fetch(event.request).then(networkResponse => {
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, networkResponse.clone());
-                });
+                // Solo cachear respuestas válidas de assets
+                if (networkResponse && networkResponse.status === 200) {
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, networkResponse.clone());
+                    });
+                }
                 return networkResponse;
             }).catch(() => {
-                console.log('[Service Worker] Network request failed, using cache for:', event.request.url);
+                console.log('[SW] Offline, usando caché:', url);
             });
             return cachedResponse || fetchPromise;
         })

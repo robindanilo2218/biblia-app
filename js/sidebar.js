@@ -114,7 +114,50 @@
                         toast("Buscando...", true);
                         setTimeout(() => {
                             let matches = currentData.filter(x => x.type === 'verse' && x.text && x.text.toLowerCase().includes(val.toLowerCase()));
-                            viewReading(`Tema: ${val}`, matches, { type: 'filter' });
+                            const PAGE_SIZE = 50;
+                            let page = 0;
+                            
+                            const renderPage = (pageItems, isFirst) => {
+                                if (isFirst) {
+                                    viewReading(`Tema: ${val} (${matches.length} encontrados)`, pageItems, { type: 'filter' });
+                                } else {
+                                    // Agregar al readText existente
+                                    const readText = document.getElementById('read-text');
+                                    if (readText) {
+                                        pageItems.forEach(v => {
+                                            const sp = document.createElement('span');
+                                            sp.className = 'verse-text-span';
+                                            sp.dataset.ref = `${v.book} ${v.reference}`;
+                                            const vn = (v.reference||'').split(':')[1] || '';
+                                            sp.innerHTML = `<span class="verse-num">${vn}</span>${v.text || ''}`;
+                                            sp.onclick = () => window.viewSingleVerse(v.id);
+                                            readText.appendChild(sp);
+                                        });
+                                    }
+                                }
+                            };
+
+                            // Primera página
+                            renderPage(matches.slice(0, PAGE_SIZE), true);
+                            page = 1;
+
+                            // Botón cargar más si hay más resultados
+                            if (matches.length > PAGE_SIZE) {
+                                const readText = document.getElementById('read-text');
+                                if (readText) {
+                                    const loadMoreBtn = document.createElement('button');
+                                    loadMoreBtn.style.cssText = 'display:block;width:100%;margin:12px 0;padding:10px;background:var(--secondary);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;';
+                                    loadMoreBtn.textContent = `Cargar más resultados (${matches.length - PAGE_SIZE} restantes)`;
+                                    loadMoreBtn.onclick = () => {
+                                        renderPage(matches.slice(page * PAGE_SIZE, (page+1) * PAGE_SIZE), false);
+                                        page++;
+                                        const rem = matches.length - page * PAGE_SIZE;
+                                        if (rem <= 0) loadMoreBtn.remove();
+                                        else loadMoreBtn.textContent = `Cargar más (${rem} restantes)`;
+                                    };
+                                    readText.appendChild(loadMoreBtn);
+                                }
+                            }
                         }, 50);
                     };
 
@@ -203,10 +246,28 @@
                     };
                 }
             }
+            else if (t === 'info') {
+                if (sidebarContent) {
+                    sidebarContent.innerHTML = `<div style="padding:12px;color:#666;font-size:0.9rem;">📊 Infografía bíblica interactiva.<br><br><small>Muestra la arquitectura, distribución y métodos de estudio de la Biblia.</small></div>`;
+                }
+                if (mainView) {
+                    mainView.innerHTML = `<div style="width:100%;height:80vh;"><iframe src="infografia.html" style="width:100%;height:100%;border:none;border-radius:8px;" title="Infografía Bíblica" loading="lazy"></iframe></div>`;
+                }
+            }
         }
         document.getElementById('tab-books').onclick = () => switchTab('books');
         document.getElementById('tab-persp').onclick = () => switchTab('persp');
         const tabSessions = document.getElementById('tab-sessions');
         if(tabSessions) tabSessions.onclick = () => switchTab('sessions');
         const tabFilters = document.getElementById('tab-filters');
-        if(tabFilters) tabFilters.onclick = () => switchTab('filters');
+        if(tabFilters) tabFilters.onclick = () => switchTab('info');
+
+        // Tab Infografía - reutiliza tab-filters (ya existe en HTML, solo cambia comportamiento)
+        document.addEventListener('DOMContentLoaded', () => {
+            const tf = document.getElementById('tab-filters');
+            if (tf) {
+                tf.style.display = 'inline-flex';
+                tf.textContent = '📊 Info';
+                tf.title = 'Infografía Bíblica';
+            }
+        });

@@ -273,6 +273,110 @@
             font-weight: bold;
         }
 
+        /* ── Smart Tracker ────────────────────────────────────── */
+        .tracker-smart-nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+            width: 100%;
+        }
+
+        .trk-arrow-btn {
+            background: rgba(255,255,255,0.18) !important;
+            border: none !important;
+            color: white !important;
+            font-size: 1.1rem !important;
+            cursor: pointer !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .trk-arrow-btn:hover { background: rgba(255,255,255,0.32) !important; }
+
+        .trk-field-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+
+        #trk-book-wrap { flex: 3; min-width: 0; }
+
+        .trk-label {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            margin-bottom: 2px;
+            white-space: nowrap;
+        }
+
+        .trk-hint {
+            font-weight: 400;
+            opacity: 0.65;
+            font-size: 0.65rem;
+        }
+
+        .trk-input {
+            width: 100%;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            color: white;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 4px 7px;
+            outline: none;
+            transition: border 0.15s, background 0.15s;
+        }
+        .trk-input::placeholder { color: rgba(255,255,255,0.45); font-weight: 400; }
+        .trk-input:focus {
+            border-color: var(--secondary);
+            background: rgba(255,255,255,0.22);
+        }
+
+        .trk-num {
+            width: 70px;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .trk-num::-webkit-outer-spin-button,
+        .trk-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .trk-suggestions {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            min-width: 180px;
+            max-width: 260px;
+            background: #1a252f;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            z-index: 200;
+            overflow: hidden;
+            margin-top: 3px;
+        }
+
+        .trk-sug-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: white;
+            font-size: 0.88rem;
+            transition: background 0.12s;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .trk-sug-item:last-child { border-bottom: none; }
+        .trk-sug-item:hover { background: var(--secondary); }
+
+
+
         /* Lectura */
         .reading-container {
             background: var(--surface);

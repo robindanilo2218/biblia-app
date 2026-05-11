@@ -99,4 +99,39 @@
             }
             renderSidebarBooks();
             if (currentData.length > 0) viewSingleVerse(currentData[0].id);
-        };
+        };
+
+        /** PWA INSTALL */
+        let deferredInstallPrompt = null;
+        const installBtn = document.getElementById('install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (installBtn) installBtn.style.display = 'inline-block';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            if (installBtn) installBtn.style.display = 'none';
+            deferredInstallPrompt = null;
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredInstallPrompt) {
+                    deferredInstallPrompt.prompt();
+                    const { outcome } = await deferredInstallPrompt.userChoice;
+                    if (outcome === 'accepted') installBtn.style.display = 'none';
+                    deferredInstallPrompt = null;
+                } else {
+                    // iOS Safari no soporta beforeinstallprompt
+                    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+                    if (isIOS) {
+                        alert("Para instalar en iPhone/iPad:\n1. Toca el botón 'Compartir' (□↑)\n2. Selecciona 'Agregar a pantalla de inicio'");
+                    } else {
+                        alert("Para instalar:\n• Chrome: Menú (⋮) → 'Instalar aplicación'\n• Edge: Menú (…) → 'Aplicaciones' → 'Instalar'");
+                    }
+                }
+            });
+        }
+

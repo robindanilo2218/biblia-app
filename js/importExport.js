@@ -2,33 +2,52 @@
         const parseBible = (json) => {
             let res = [];
             const ver = json.local_title || "Biblia";
+            // Normalizar nombres canónicos de libros al importar
+            const canonicalName = (rawName) => {
+                if (!rawName) return rawName;
+                const n = normalizeBookName(rawName);
+                // Mapa de nombre normalizado → nombre canónico en español
+                const canon = {
+                    'salmos': 'Salmos', 'salmo': 'Salmos',
+                    'cantares': 'Cantares', 'cantar de los cantares': 'Cantares',
+                    'hechos': 'Hechos', 'hechos de los apostoles': 'Hechos',
+                };
+                return canon[n] || rawName;
+            };
             const ext = (n, b, c) => {
                 if (!n) return;
                 if (Array.isArray(n)) n.forEach(x => ext(x, b, c));
                 else if (n.type === 'verse' || (n.verse_numbers && n.lines)) {
-                    let v = n.verse_numbers ? n.verse_numbers[0] : (n.num || "1");
-                    let info = getBookInfo(b);
-                    let reference = `${c}:${v}`;
-                    let ex = currentData.find(x => x.type === 'verse' && x.book === b && x.reference === reference && (!x.text));
-                    let verseObj = { 
-                        id: ex ? ex.id : `v_${ver}_${b}_${c}_${v}`, 
-                        type: 'verse', 
-                        version: ver, 
-                        testament: info.testament, 
-                        category: info.category, 
-                        book: b, 
-                        chapter: c, 
-                        reference: reference, 
-                        text: n.lines ? n.lines.join(" ") : n.text 
-                    };
-                    if (ex) {
-                        if (ex.base_perspectives) verseObj.base_perspectives = ex.base_perspectives;
-                        if (ex.perspectives) verseObj.perspectives = ex.perspectives;
-                        if (ex.tags) verseObj.tags = ex.tags;
-                        if (ex.cross_references) verseObj.cross_references = ex.cross_references;
-                    }
-                    res.push(verseObj);
-                } else['contents', 'content', 'items', 'verses'].forEach(k => n[k] && ext(n[k], b, c));
+                    // Generar una entrada por cada número en verse_numbers
+                    const nums = (n.verse_numbers && n.verse_numbers.length > 0)
+                        ? n.verse_numbers
+                        : [n.num || "1"];
+                    const sharedText = n.lines ? n.lines.join(" ") : n.text;
+                    nums.forEach(v => {
+                        let bNorm = canonicalName(b);
+                        let info = getBookInfo(bNorm);
+                        let reference = `${c}:${v}`;
+                        let ex = currentData.find(x => x.type === 'verse' && x.book === bNorm && x.reference === reference && (!x.text));
+                        let verseObj = {
+                            id: ex ? ex.id : `v_${ver}_${bNorm}_${c}_${v}`,
+                            type: 'verse',
+                            version: ver,
+                            testament: info.testament,
+                            category: info.category,
+                            book: bNorm,
+                            chapter: c,
+                            reference: reference,
+                            text: sharedText
+                        };
+                        if (ex) {
+                            if (ex.base_perspectives) verseObj.base_perspectives = ex.base_perspectives;
+                            if (ex.perspectives) verseObj.perspectives = ex.perspectives;
+                            if (ex.tags) verseObj.tags = ex.tags;
+                            if (ex.cross_references) verseObj.cross_references = ex.cross_references;
+                        }
+                        res.push(verseObj);
+                    });
+                } else ['contents', 'content', 'items', 'verses'].forEach(k => n[k] && ext(n[k], b, c));
             };
             if (json.books) json.books.forEach(b => b.chapters && b.chapters.forEach(c => ext(c, b.name, c.chapter_usfm ? c.chapter_usfm.split('.').pop() : "1")));
             else if (Array.isArray(json)) return json;
