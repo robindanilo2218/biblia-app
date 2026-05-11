@@ -274,7 +274,7 @@
             if (!mainView) return;
             mainView.innerHTML = '';
 
-            const verses = items.filter(x => x.type === 'verse').sort((a, b) => {
+            const verses = items.filter(x => x.type === 'verse' && x.text).sort((a, b) => {
                 let idxA = BIBLE_BOOKS.indexOf(normalizeBookName(a.book));
                 let idxB = BIBLE_BOOKS.indexOf(normalizeBookName(b.book));
                 return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1]));
@@ -396,7 +396,7 @@
                 window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
 
                 // Calcular límites dinámicos para el libro/capítulo actual
-                const allVerses = currentData.filter(x => x.type === 'verse');
+                const allVerses = currentData.filter(x => x.type === 'verse' && x.text);
                 const bReal = normalizeBookName(match[1]);
                 const inBook = allVerses.filter(x => normalizeBookName(x.book) === bReal);
                 const getC = x => parseInt(x.chapter) || parseInt((x.reference||'0:0').split(':')[0]);
@@ -674,7 +674,7 @@
         };
 
         const nav = (t, off) => {
-            const all = currentData.filter(x => x.type === 'verse' && x.version === t.version);
+            const all = currentData.filter(x => x.type === 'verse' && x.version === t.version && x.text);
             const chaps = []; const seen = new Set();
             all.forEach(v => { let k = v.book + "_" + v.chapter; if (!seen.has(k)) { seen.add(k); chaps.push({ b: v.book, c: v.chapter }); } });
             let idx = chaps.findIndex(x => x.b === t.book && x.c === t.chapter);
@@ -710,7 +710,7 @@
                 let bReal = normalizeBookName(bName);
                 // Obtener versión del trackerRef o del primer versículo en currentData
                 let version = (window.currentTrackerRef && window.currentTrackerRef.version) || null;
-                let allVerses = currentData.filter(x => x.type === 'verse');
+                let allVerses = currentData.filter(x => x.type === 'verse' && x.text);
                 if (!version && allVerses.length > 0) version = allVerses[0].version;
                 let all = version ? allVerses.filter(x => x.version === version) : allVerses;
                 
@@ -1010,7 +1010,7 @@
                 // Si la pestaña actual es books, podemos disparar una actualización visual
                 let pBar = document.querySelector('#sidebar-content > div:first-child');
                 if (pBar && pBar.innerText.includes('Progreso')) {
-                    let totalVerses = currentData.filter(x => x.type === 'verse').length;
+                    let totalVerses = currentData.filter(x => x.type === 'verse' && x.text).length;
                     let percent = totalVerses > 0 ? (readSet.size / totalVerses * 100).toFixed(2) : 0;
                     pBar.querySelector('div > span:nth-child(2)').innerText = percent + '%';
                     pBar.querySelector('div:nth-child(2) > div').style.width = percent + '%';
@@ -1041,7 +1041,7 @@
                                <div style="font-style:italic; color:#555; font-size:0.9rem; margin-top:4px;">"${item.snippet}"</div>`;
                 
                 d.onclick = () => {
-                    let matches = currentData.filter(x => x.type === 'verse' && (x.book + ' ' + x.reference) === item.ref);
+                    let matches = currentData.filter(x => x.type === 'verse' && x.text && (x.book + ' ' + x.reference) === item.ref);
                     if(matches.length > 0) window.viewSingleVerse(matches[0].id);
                 };
                 list.appendChild(d);

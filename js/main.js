@@ -46,11 +46,13 @@
                                 ex.base_perspectives = { ...ex.base_perspectives, ...s.perspectives };
                                 if (s.tags) ex.tags = [...new Set([...(ex.tags || []), ...s.tags])];
                                 if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
-                            } else { 
-                                s.id = s.id || ("s_" + Math.random()); 
-                                s.type = 'verse'; 
-                                s.base_perspectives = s.perspectives; 
-                                parsed.push(s); 
+                            } else if (s.text && s.text.trim()) {
+                                s.id = s.id || ("s_" + Math.random());
+                                s.type = 'verse';
+                                s.base_perspectives = s.perspectives;
+                                parsed.push(s);
+                            } else {
+                                console.warn("Skipping study entry without underlying Bible verse:", s.book, s.reference);
                             }
                         }
                     });
@@ -190,4 +192,4 @@
                     }
                 });
             }
-        });
+        });

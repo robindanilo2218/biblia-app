@@ -126,6 +126,8 @@
                             if (s.cross_references) ex.cross_references = [...new Set([...(ex.cross_references || []), ...s.cross_references])];
                         }
                         toSave.push(ex);
+                    } else if (stype === 'verse' && (!s.text || !s.text.trim())) {
+                        console.warn("Skipping imported study verse without underlying Bible verse:", s.book, s.reference);
                     } else {
                         s.id = s.id || ((stype === 'verse' ? "s_" : "n_") + Math.random());
                         s.type = stype;

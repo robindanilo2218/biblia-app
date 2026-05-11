@@ -120,7 +120,7 @@
                 renderSidebarBooks();
                 
                 let readArr = JSON.parse(localStorage.getItem('biblia_read_verses') || '[]');
-                let totalVerses = currentData.filter(x => x.type === 'verse').length;
+                let totalVerses = currentData.filter(x => x.type === 'verse' && x.text).length;
                 let percent = totalVerses > 0 ? (readArr.length / totalVerses * 100).toFixed(2) : 0;
                 
                 let progressDiv = document.createElement('div');
