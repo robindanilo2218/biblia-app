@@ -415,13 +415,15 @@
                             if (draftRefs.length > 0) {
                                 draftDiv.innerHTML = `<div style="background:#fff3cd; padding:10px; border-radius:5px; border-left:4px solid #ffc107; cursor:pointer; font-size:0.9rem;">
                                     <b style="color:#856404;">📌 Portapapeles en Construcción</b><br>
-                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Clic para guardar.</span>
+                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Haz clic para continuar editando o guardar.</span>
                                 </div>`;
-                                draftDiv.onclick = () => window.openClipboardEditor();
                             } else {
-                                draftDiv.innerHTML = '';
-                                draftDiv.onclick = null;
+                                draftDiv.innerHTML = `<div style="background:#f0f7ff; padding:10px; border-radius:5px; border-left:4px solid var(--secondary); cursor:pointer; font-size:0.9rem;">
+                                    <b style="color:var(--primary);">📌 Portapapeles en Construcción</b><br>
+                                    <span style="color:#333;">No hay referencias todavía. Empieza añadiendo versículos o abre el borrador para comenzar.</span>
+                                </div>`;
                             }
+                            draftDiv.onclick = () => window.openClipboardEditor();
                         }
 
                         let clipboards = JSON.parse(localStorage.getItem('biblia_clipboards') || '[]');
@@ -440,15 +442,25 @@
                     };
                     renderClipboards();
 
-                    window.openClipboardEditor = (existingClipboard = null) => {
+                    window.openClipboardEditor = (existingClipboard = null, initialRefs = '') => {
                         if(mainView) {
                             let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
-                            let defaultRefs = draftRefs.join('\n');
                             let isEdit = !!existingClipboard;
                             let cId = isEdit ? existingClipboard.id : 'clip_' + Date.now();
-                            let cDate = isEdit ? existingClipboard.date : '';
+                            let cDate = isEdit ? existingClipboard.date : new Date().toISOString().slice(0, 10);
                             let cTitle = isEdit ? existingClipboard.title : '';
-                            let cRefs = isEdit ? existingClipboard.refs : defaultRefs;
+                            let refs = [];
+                            if (isEdit) {
+                                refs = existingClipboard.refs ? existingClipboard.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x) : [];
+                            } else {
+                                refs = [...draftRefs];
+                                if (initialRefs) refs.push(initialRefs);
+                            }
+                            let uniqueRefs = [];
+                            refs.forEach(r => {
+                                if (r && !uniqueRefs.includes(r)) uniqueRefs.push(r);
+                            });
+                            let cRefs = uniqueRefs.join('\n');
 
                             mainView.innerHTML = `
                                 <div class="verse-card" style="padding:15px; max-width:650px; margin:0 auto; box-shadow:0 4px 15px rgba(0,0,0,0.1); border-top:4px solid var(--primary);">

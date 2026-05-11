@@ -542,7 +542,7 @@ const VERSE_READ_DELAY = 2200;
 
             mainView.innerHTML = `
                 <div class="reading-container">
-                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button><button onclick="window.addToDraftClipboardFromView(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a portapapeles">📎</button></h2>
+                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button><button onclick="window.openClipboardEditor(null, ${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Crear portapapeles con este objetivo">📎</button></h2>
                     <div id="notes-top"></div>
                     <div id="read-text"></div>
                 </div>`;
@@ -863,7 +863,7 @@ const VERSE_READ_DELAY = 2200;
                 if (isMultiCap && vChap !== lastChap) {
                     const cd = document.createElement('div');
                     cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px; display:flex; align-items:center;';
-                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button><button class="add-to-clipboard-btn" onclick="window.addToDraftClipboard('${v.book} ${vChap}')" title="Añadir capítulo a portapapeles" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">📎</button>Capítulo ${vChap}`;
+                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button><button class="add-to-clipboard-btn" onclick="window.openClipboardEditor(null, '${v.book} ${vChap}')" title="Crear portapapeles con este capítulo" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">📎</button>Capítulo ${vChap}`;
                     readText.appendChild(cd);
                     lastChap = vChap;
                 }
@@ -918,7 +918,7 @@ const VERSE_READ_DELAY = 2200;
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
                 const clipRef = `${v.book} ${v.reference}`;
-                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession(${JSON.stringify(`${v.book} ${v.reference}`)})" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><button class="add-to-clipboard-btn" onclick="event.stopPropagation(); window.addToDraftClipboard(${JSON.stringify(clipRef)})" onpointerup="event.stopPropagation();" title="Añadir a portapapeles" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">📎</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
+                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession(${JSON.stringify(`${v.book} ${v.reference}`)})" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><button class="add-to-clipboard-btn" onclick="event.stopPropagation(); window.openClipboardEditor(null, ${JSON.stringify(clipRef)})" onpointerup="event.stopPropagation();" title="Crear portapapeles con este versículo" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">📎</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
@@ -1115,7 +1115,7 @@ const VERSE_READ_DELAY = 2200;
         };
 
         window.addToDraftClipboardFromView = (ref) => {
-            window.addToDraftClipboard(ref);
+            window.openClipboardEditor(null, ref);
         };
 
         window.copyTextToClipboard = async (text) => {
@@ -1170,17 +1170,17 @@ const VERSE_READ_DELAY = 2200;
                     const chap = m[2];
                     const start = m[3] ? parseInt(m[3]) : null;
                     const end = m[4] ? parseInt(m[4]) : null;
-                    if (start && !end) {
-                        return verseRefMap.get(`${book}_${chap}:${start}`) || null;
-                    }
                     if (start && end) {
-                        return { book, chap, start, end };
+                        return { type: 'range', book, chap, start, end };
                     }
-                    return { book, chap };
+                    if (start) {
+                        return { type: 'verse', book, chap, verse: start };
+                    }
+                    return { type: 'chapter', book, chap };
                 }
                 const bookOnly = refStr.trim();
                 if (bookOnly) {
-                    return { book: normalizeBookName(bookOnly) };
+                    return { type: 'book', book: normalizeBookName(bookOnly) };
                 }
                 return null;
             };
@@ -1197,24 +1197,38 @@ const VERSE_READ_DELAY = 2200;
                 }
 
                 let verses = [];
-                if (parsed.start && parsed.end) {
-                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book && v.chapter===parsed.chap && (() => {
-                        const num = parseInt((v.reference||'').split(':')[1]||0);
+                let message = '';
+                if (parsed.type === 'range') {
+                    verses = currentData.filter(v => v.type === 'verse' && normalizeBookName(v.book) === parsed.book && v.chapter === parsed.chap && (() => {
+                        const num = parseInt((v.reference || '').split(':')[1] || 0);
                         return num >= parsed.start && num <= parsed.end;
                     })());
-                } else if (parsed.start) {
-                    const found = verseRefMap.get(`${parsed.book}_${parsed.chap}:${parsed.start}`);
-                    if (found) verses = [found];
-                } else if (parsed.chap) {
-                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book && v.chapter===parsed.chap);
-                } else {
-                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book);
+                    message = `No se encontraron versículos para el rango ${line}`;
+                } else if (parsed.type === 'verse') {
+                    const key = `${parsed.book}_${parsed.chap}:${parsed.verse}`;
+                    const found = verseRefMap.get(key);
+                    if (found) {
+                        verses = [found];
+                    } else {
+                        const chapterExists = currentData.some(v => v.type === 'verse' && normalizeBookName(v.book) === parsed.book && v.chapter === parsed.chap);
+                        if (chapterExists) {
+                            message = `No existe ${line} en esta versión.`;
+                        } else {
+                            message = `No se encontró el capítulo ${parsed.book} ${parsed.chap}.`;
+                        }
+                    }
+                } else if (parsed.type === 'chapter') {
+                    verses = currentData.filter(v => v.type === 'verse' && normalizeBookName(v.book) === parsed.book && v.chapter === parsed.chap);
+                    message = `No se encontró el capítulo ${line}.`;
+                } else if (parsed.type === 'book') {
+                    verses = currentData.filter(v => v.type === 'verse' && normalizeBookName(v.book) === parsed.book);
+                    message = `No se encontró el libro ${line}.`;
                 }
 
                 if (verses.length === 0) {
                     const emptyBlock = document.createElement('div');
                     emptyBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#fdecea; border-radius:8px; color:#c0392b;';
-                    emptyBlock.textContent = `No se encontraron versículos para ${line}`;
+                    emptyBlock.textContent = message || `No se encontraron versículos para ${line}`;
                     readText.appendChild(emptyBlock);
                     return;
                 }
