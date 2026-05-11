@@ -1,5 +1,6 @@
 /** MOTOR DE VISTA */
 let isTyping = false;
+let currentTooltipTarget = null;
 
         window.formatVerseText = (text) => {
             if (!text) return '';
@@ -71,15 +72,19 @@ let isTyping = false;
         const attachVerseTapBehavior = (span, verseId) => {
             // Variables para calcular los gestos en el móvil
             let touchTimer;
+            let touchStartTime = 0;
+            let longPressTriggered = false;
             let lastTapTime = 0;
             const SHORT_HOLD = 300; // 300ms para mostrar la burbuja amarilla
             const DOUBLE_TAP = 300; // Tiempo máximo entre dos toques rápidos
 
             // A. El dedo TOCA la pantalla
             span.addEventListener('touchstart', (e) => {
+                touchStartTime = new Date().getTime();
+                longPressTriggered = false;
                 // Iniciamos el cronómetro para la burbuja amarilla
                 touchTimer = setTimeout(() => {
-                    // Si el dedo se quedó quieto 300ms, forzamos la burbuja amarilla
+                    longPressTriggered = true;
                     document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
                     span.classList.add('force-yellow');
                 }, SHORT_HOLD);
@@ -87,24 +92,46 @@ let isTyping = false;
 
             // B. El dedo se MUEVE (quiere hacer scroll/celeste)
             span.addEventListener('touchmove', () => {
-                // Cancelamos la burbuja amarilla porque el usuario está deslizando
                 clearTimeout(touchTimer);
                 span.classList.remove('force-yellow');
+                if (currentTooltipTarget === span) {
+                    window._hideFloatTip();
+                    currentTooltipTarget = null;
+                }
             }, { passive: true });
 
             // C. El dedo SUELTA la pantalla
             span.addEventListener('touchend', (e) => {
                 clearTimeout(touchTimer); // Evitar burbujas accidentales si soltó rápido
-                
+                span.classList.remove('force-yellow');
+
+                if (longPressTriggered) {
+                    return; // No mostramos tooltip en toque largo
+                }
+
                 const currentTime = new Date().getTime();
                 const tapLength = currentTime - lastTapTime;
+                const touchDuration = currentTime - touchStartTime;
+                const touchPoint = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
 
                 // ¿Fue un Doble Toque Rápido?
                 if (tapLength < DOUBLE_TAP && tapLength > 0) {
-                    e.preventDefault(); 
-                    span.classList.remove('force-yellow');
+                    e.preventDefault();
+                    window._hideFloatTip();
+                    currentTooltipTarget = null;
                     viewSingleVerse(verseId); // Entra a las notas del versículo
-                } 
+                } else if (touchDuration < SHORT_HOLD && span.dataset.tt) {
+                    // Tap corto: alterna tooltip
+                    if (currentTooltipTarget === span) {
+                        window._hideFloatTip();
+                        currentTooltipTarget = null;
+                    } else {
+                        window._hideFloatTip();
+                        currentTooltipTarget = span;
+                        window._showFloatTip({ currentTarget: span, clientX: touchPoint.clientX, clientY: touchPoint.clientY });
+                    }
+                }
+
                 lastTapTime = currentTime;
             });
 
@@ -126,6 +153,7 @@ let isTyping = false;
 
         // ── Tooltip flotante global ────────────────────────────────────────
         const floatTip = document.getElementById('floating-tooltip');
+        let floatTipHideTimer = null;
         window._positionFloatTip = (e) => {
             if (!floatTip || floatTip.style.display === 'none') return;
             const margin = 18;
@@ -138,30 +166,52 @@ let isTyping = false;
             if (x < margin) x = margin;
             if (x + tw > window.innerWidth - margin) x = window.innerWidth - tw - margin;
             
-            // Vertical: por defecto abajo del cursor, si no cabe, lo pasa arriba
-            let y = e.clientY + gapY;
-            if (y + th > window.innerHeight - margin) {
-                let yAbove = e.clientY - th - gapY;
-                if (yAbove > margin) {
-                    y = yAbove;
-                } else {
-                    // Si el tooltip es inmenso, lo pegamos al borde
-                    y = window.innerHeight - th - margin;
-                    if (y < margin) y = margin;
-                }
+            // Vertical: buscar siempre un espacio visible completo
+            const yBelow = e.clientY + gapY;
+            const yAbove = e.clientY - th - gapY;
+            let y;
+            const fitsBelow = yBelow + th <= window.innerHeight - margin;
+            const fitsAbove = yAbove >= margin;
+
+            if (fitsAbove && (!fitsBelow || yAbove >= yBelow)) {
+                y = yAbove;
+            } else if (fitsBelow) {
+                y = yBelow;
+            } else if (fitsAbove) {
+                y = yAbove;
+            } else {
+                y = Math.max(margin, Math.min(yBelow, window.innerHeight - th - margin));
             }
-            
+
             floatTip.style.left = x + 'px';
             floatTip.style.top = y + 'px';
         };
         window._showFloatTip = (e) => {
             const tt = e.currentTarget.dataset.tt;
             if (!tt || !floatTip) return;
+            if (floatTipHideTimer) {
+                clearTimeout(floatTipHideTimer);
+                floatTipHideTimer = null;
+            }
             floatTip.innerHTML = tt;
             floatTip.style.display = 'block';
             window._positionFloatTip(e);
         };
-        window._hideFloatTip = () => { if (floatTip) floatTip.style.display = 'none'; };
+        window._hideFloatTip = (immediate = false) => {
+            if (!floatTip) return;
+            if (floatTipHideTimer) {
+                clearTimeout(floatTipHideTimer);
+                floatTipHideTimer = null;
+            }
+            if (immediate) {
+                floatTip.style.display = 'none';
+                return;
+            }
+            floatTipHideTimer = setTimeout(() => {
+                if (floatTip) floatTip.style.display = 'none';
+                floatTipHideTimer = null;
+            }, 650);
+        };
 
         window.viewSingleVerse = (id, fromHistory = false) => {
             if (!fromHistory) pushHistory('viewSingleVerse', [id]);
@@ -704,10 +754,12 @@ let isTyping = false;
                 });
             });
 
-            // Limpieza: Si tocas en cualquier espacio vacío del móvil, la burbuja amarilla desaparece
+            // Limpieza: Si tocas en cualquier espacio vacío del móvil, la burbuja amarilla desaparece y se cierra el tooltip
             document.addEventListener('touchstart', (e) => {
                 if (!e.target.closest('.verse-text-span')) {
                     document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
+                    window._hideFloatTip();
+                    currentTooltipTarget = null;
                 }
             }, { passive: true });
         };
