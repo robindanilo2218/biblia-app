@@ -22,19 +22,79 @@
                 if (last.fn === fn && JSON.stringify(last.params) === JSON.stringify(params)) return;
             }
             historyStack.push({ fn, params });
+            
+            if (historyStack.length === 1) {
+                window.history.replaceState({ appNav: true, stackLen: 1 }, "");
+            } else {
+                window.history.pushState({ appNav: true, stackLen: historyStack.length }, "");
+            }
+            
             if (btnBack) btnBack.style.display = historyStack.length > 1 ? 'flex' : 'none';
         };
 
         if (btnBack) {
             btnBack.onclick = () => {
                 if (historyStack.length > 1) {
-                    historyStack.pop();
-                    let prev = historyStack[historyStack.length - 1];
-                    window[prev.fn](...prev.params, true);
+                    window.history.back(); // Activa el evento popstate
                 }
-                btnBack.style.display = historyStack.length > 1 ? 'flex' : 'none';
             };
         }
+
+        window.addEventListener('popstate', (e) => {
+            let targetLen = e.state ? e.state.stackLen : 1;
+            
+            if (targetLen < historyStack.length) {
+                let dropCount = historyStack.length - targetLen;
+                for(let i=0; i<dropCount; i++) historyStack.pop();
+                
+                let prev = historyStack[historyStack.length - 1];
+                if (prev) window[prev.fn](...prev.params, true);
+            } else if (targetLen > historyStack.length) {
+                window.history.back();
+                return;
+            }
+            
+            if (btnBack) btnBack.style.display = historyStack.length > 1 ? 'flex' : 'none';
+        });
+
+        window.focusVerse = (span) => {
+            if (!span) return;
+            document.querySelectorAll('.verse-text-span.selected-verse').forEach(el => el.classList.remove('selected-verse'));
+            span.classList.add('selected-verse');
+            window.manualHighlightMode = true;
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (window.globalUpdateTracker) window.globalUpdateTracker(span.dataset.ref, span.dataset.version);
+        };
+
+        const attachVerseTapBehavior = (span, verseId) => {
+            const TAP_MAX_DELAY = 300;
+            let lastTapTime = 0;
+            let tapTimeout = null;
+
+            span.addEventListener('pointerup', (event) => {
+                if (event.pointerType === 'mouse' && event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+
+                const now = Date.now();
+                if (lastTapTime && (now - lastTapTime) < TAP_MAX_DELAY && tapTimeout) {
+                    clearTimeout(tapTimeout);
+                    tapTimeout = null;
+                    lastTapTime = 0;
+                    window._hideFloatTip();
+                    viewSingleVerse(verseId);
+                    return;
+                }
+
+                lastTapTime = now;
+                tapTimeout = setTimeout(() => {
+                    tapTimeout = null;
+                    lastTapTime = 0;
+                    window._hideFloatTip();
+                    window.focusVerse(span);
+                }, TAP_MAX_DELAY);
+            });
+        };
 
         const setEditor = (target, placeholder) => {
             editorTarget = target;
@@ -593,13 +653,13 @@
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
-                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession('${v.book} ${v.reference}')" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
+                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession('${v.book} ${v.reference}')" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
                     span.addEventListener('mouseleave', window._hideFloatTip);
                 }
-                span.onclick = () => { window._hideFloatTip(); viewSingleVerse(v.id); };
+                attachVerseTapBehavior(span, v.id);
                 readText.appendChild(span);
                 readingObserver.observe(span);
             });
