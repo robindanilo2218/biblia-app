@@ -398,6 +398,105 @@
 
                 }
             }
+            else if (t === 'clipboards') {
+                if (sidebarContent) {
+                    sidebarContent.innerHTML = `
+                        <div style="padding:10px;">
+                            <button id="btn-new-clipboard" style="width:100%; padding:10px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">➕ Crear Portapapeles</button>
+                            <div id="draft-clipboard-info" style="margin-top:10px;"></div>
+                            <h4 style="margin-top:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">📎 Mis Portapapeles</h4>
+                            <div id="clipboards-list" style="margin-top:10px; display:flex; flex-direction:column; gap:5px;"></div>
+                        </div>
+                    `;
+                    const renderClipboards = () => {
+                        let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
+                        let draftDiv = document.getElementById('draft-clipboard-info');
+                        if (draftDiv) {
+                            if (draftRefs.length > 0) {
+                                draftDiv.innerHTML = `<div style="background:#fff3cd; padding:10px; border-radius:5px; border-left:4px solid #ffc107; cursor:pointer; font-size:0.9rem;">
+                                    <b style="color:#856404;">📌 Portapapeles en Construcción</b><br>
+                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Clic para guardar.</span>
+                                </div>`;
+                                draftDiv.onclick = () => window.openClipboardEditor();
+                            } else {
+                                draftDiv.innerHTML = '';
+                                draftDiv.onclick = null;
+                            }
+                        }
+
+                        let clipboards = JSON.parse(localStorage.getItem('biblia_clipboards') || '[]');
+                        const list = document.getElementById('clipboards-list');
+                        list.innerHTML = '';
+                        clipboards.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach((c, idx) => {
+                            let d = document.createElement('div');
+                            d.style = "display:flex; justify-content:space-between; background:#e8f4f8; padding:10px; border-radius:5px; cursor:pointer; border-left:4px solid var(--primary);";
+                            d.innerHTML = `<div style="flex:1;"><b>${c.date}</b><br><span style="font-size:0.9rem;">${c.title}</span></div><button class="btn-view-clip" style="border:none; background:none; cursor:pointer; color:var(--secondary); font-size:1.1rem; margin-right:5px;" title="Ver portapapeles">👁️</button><button class="btn-edit-clip" style="border:none; background:none; cursor:pointer; color:var(--primary); font-size:1.1rem; margin-right:5px;" title="Editar portapapeles">✏️</button><button class="btn-del-clip" style="border:none; background:none; cursor:pointer; color:red; font-size:1.1rem;" title="Eliminar portapapeles">✖</button>`;
+                            d.querySelector('.btn-view-clip').onclick = (e) => { e.stopPropagation(); window.viewClipboard(c); };
+                            d.querySelector('.btn-edit-clip').onclick = (e) => { e.stopPropagation(); window.openClipboardEditor(c); };
+                            d.querySelector('.btn-del-clip').onclick = (e) => { e.stopPropagation(); if(confirm('¿Eliminar portapapeles?')) { clipboards.splice(idx,1); localStorage.setItem('biblia_clipboards', JSON.stringify(clipboards)); renderClipboards(); } };
+                            d.onclick = () => window.viewClipboard(c);
+                            list.appendChild(d);
+                        });
+                    };
+                    renderClipboards();
+
+                    window.openClipboardEditor = (existingClipboard = null) => {
+                        if(mainView) {
+                            let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
+                            let defaultRefs = draftRefs.join('\n');
+                            let isEdit = !!existingClipboard;
+                            let cId = isEdit ? existingClipboard.id : 'clip_' + Date.now();
+                            let cDate = isEdit ? existingClipboard.date : '';
+                            let cTitle = isEdit ? existingClipboard.title : '';
+                            let cRefs = isEdit ? existingClipboard.refs : defaultRefs;
+
+                            mainView.innerHTML = `
+                                <div class="verse-card" style="padding:15px; max-width:650px; margin:0 auto; box-shadow:0 4px 15px rgba(0,0,0,0.1); border-top:4px solid var(--primary);">
+                                    <h2 style="font-size:1.3rem; margin-bottom:15px;">${isEdit ? '✏️ Editar Portapapeles' : '📎 Nuevo Portapapeles'}</h2>
+                                    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                                        <div style="flex:1; min-width:140px;">
+                                            <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Fecha:</label>
+                                            <input type="date" id="clip-date" value="${cDate}" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:0.9rem;">
+                                        </div>
+                                        <div style="flex:2; min-width:200px;">
+                                            <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Título:</label>
+                                            <input type="text" id="clip-title" value="${cTitle}" placeholder="Ej: Versículos para el devocional" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:0.9rem;">
+                                        </div>
+                                    </div>
+                                    <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Referencias en orden:</label>
+                                    <p style="font-size:0.75rem; color:#888; margin-bottom:5px; line-height:1.2;">Cada línea guarda un libro, capítulo o versículo. Ej.: <b>Juan 3:16</b> o <b>Salmos 23</b>.</p>
+                                    <textarea id="clip-refs" rows="6" style="width:100%; padding:8px; margin-bottom:10px; border-radius:5px; border:1px solid #ccc; font-family:monospace; font-size:0.85rem; resize:vertical;">${cRefs}</textarea>
+                                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                        <button id="btn-save-clipboard" style="padding:10px 20px; background:var(--primary); color:white; border:none; border-radius:6px; cursor:pointer; font-size:1rem; font-weight:bold;">💾 Guardar Portapapeles</button>
+                                    </div>
+                                </div>
+                            `;
+
+                            document.getElementById('btn-save-clipboard').onclick = () => {
+                                let d = document.getElementById('clip-date').value;
+                                let t = document.getElementById('clip-title').value.trim();
+                                let r = document.getElementById('clip-refs').value.trim();
+                                if(!d || !t) return alert('La fecha y el título son obligatorios.');
+                                let clipboards = JSON.parse(localStorage.getItem('biblia_clipboards') || '[]');
+                                let newClipboard = { id: cId, date: d, title: t, refs: r };
+                                if (isEdit) {
+                                    let idx = clipboards.findIndex(x => x.id === cId);
+                                    if (idx > -1) clipboards[idx] = newClipboard;
+                                } else {
+                                    clipboards.push(newClipboard);
+                                }
+                                localStorage.setItem('biblia_clipboards', JSON.stringify(clipboards));
+                                if (!isEdit) localStorage.removeItem('biblia_draft_clipboard_refs');
+                                renderClipboards();
+                                if(window.toast) window.toast('Portapapeles guardado', false);
+                                window.viewClipboard(newClipboard);
+                            };
+                        }
+                    };
+
+                    document.getElementById('btn-new-clipboard').onclick = () => window.openClipboardEditor();
+                }
+            }
             else if (t === 'info') {
                 if (sidebarContent) {
                     sidebarContent.innerHTML = `<div style="padding:12px;color:#666;font-size:0.9rem;">📊 Infografía bíblica interactiva.<br><br><small>Muestra la arquitectura, distribución y métodos de estudio de la Biblia.</small></div>`;
@@ -411,6 +510,8 @@
         document.getElementById('tab-persp').onclick = () => switchTab('persp');
         const tabSessions = document.getElementById('tab-sessions');
         if(tabSessions) tabSessions.onclick = () => switchTab('sessions');
+        const tabClipboards = document.getElementById('tab-clipboards');
+        if(tabClipboards) tabClipboards.onclick = () => switchTab('clipboards');
         const tabFilters = document.getElementById('tab-filters');
         if(tabFilters) tabFilters.onclick = () => switchTab('info');
 

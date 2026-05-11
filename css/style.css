@@ -575,6 +575,26 @@
             margin-right: 4px;
         }
 
+        .add-to-clipboard-btn,
+        .add-to-session-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            line-height: 1;
+            margin-right: 3px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--secondary);
+        }
+
+        .add-to-clipboard-btn:hover,
+        .add-to-session-btn:hover {
+            color: var(--primary);
+        }
+
         .study-section-title {
             font-size: 1.1rem;
             color: var(--primary);

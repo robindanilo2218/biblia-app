@@ -542,7 +542,7 @@ const VERSE_READ_DELAY = 2200;
 
             mainView.innerHTML = `
                 <div class="reading-container">
-                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession('${target.type === 'chapter' ? target.book + ' ' + target.chapter : title}')" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button></h2>
+                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button><button onclick="window.addToDraftClipboardFromView(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a portapapeles">📎</button></h2>
                     <div id="notes-top"></div>
                     <div id="read-text"></div>
                 </div>`;
@@ -863,7 +863,7 @@ const VERSE_READ_DELAY = 2200;
                 if (isMultiCap && vChap !== lastChap) {
                     const cd = document.createElement('div');
                     cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px; display:flex; align-items:center;';
-                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button>Capítulo ${vChap}`;
+                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button><button class="add-to-clipboard-btn" onclick="window.addToDraftClipboard('${v.book} ${vChap}')" title="Añadir capítulo a portapapeles" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">📎</button>Capítulo ${vChap}`;
                     readText.appendChild(cd);
                     lastChap = vChap;
                 }
@@ -917,7 +917,8 @@ const VERSE_READ_DELAY = 2200;
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
-                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession('${v.book} ${v.reference}')" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
+                const clipRef = `${v.book} ${v.reference}`;
+                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession(${JSON.stringify(`${v.book} ${v.reference}`)})" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><button class="add-to-clipboard-btn" onclick="event.stopPropagation(); window.addToDraftClipboard(${JSON.stringify(clipRef)})" onpointerup="event.stopPropagation();" title="Añadir a portapapeles" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">📎</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
@@ -1099,6 +1100,146 @@ const VERSE_READ_DELAY = 2200;
             refs.push(ref);
             localStorage.setItem('biblia_draft_refs', JSON.stringify(refs));
             if (window.toast) window.toast("Añadido a la sesión en borrador", false);
+        };
+
+        window.addToDraftClipboard = (ref) => {
+            if (!ref) return;
+            let refs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
+            if (!refs.includes(ref)) {
+                refs.push(ref);
+                localStorage.setItem('biblia_draft_clipboard_refs', JSON.stringify(refs));
+                if (window.toast) window.toast("Añadido al portapapeles", false);
+            } else {
+                if (window.toast) window.toast("Ya existe en el portapapeles", false);
+            }
+        };
+
+        window.addToDraftClipboardFromView = (ref) => {
+            window.addToDraftClipboard(ref);
+        };
+
+        window.copyTextToClipboard = async (text) => {
+            if (!text) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text);
+            }
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        };
+
+        window.copyClipboardRefs = async (clipboard) => {
+            if (!clipboard || !clipboard.refs) return;
+            const text = clipboard.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x).join('\n');
+            try {
+                await window.copyTextToClipboard(text);
+                if (window.toast) window.toast('Referencias copiadas al portapapeles del sistema', false);
+            } catch (err) {
+                alert('Error copiando referencias: ' + err);
+            }
+        };
+
+        window.viewClipboard = (clipboard, fromHistory = false) => {
+            if (!fromHistory) pushHistory('viewClipboard', [clipboard]);
+            if (!mainView) return;
+            mainView.innerHTML = `
+                <div class="verse-card" style="margin-bottom:20px; background:var(--primary); color:white;">
+                    <h2>📎 ${clipboard.title}</h2>
+                    <p><b>Fecha:</b> ${clipboard.date}</p>
+                    <p style="white-space:pre-wrap; font-size:0.9rem; margin-top:10px; border-top:1px solid rgba(255,255,255,0.3); padding-top:10px;"><b>Contenido del Portapapeles:</b><br>${clipboard.refs}</p>
+                    <button id="btn-copy-clipboard-all" style="margin-top:10px; padding:10px 16px; background:#fff; color:var(--primary); border:none; border-radius:8px; cursor:pointer; font-weight:bold;">📋 Copiar todo</button>
+                </div>
+                <div id="clipboard-read-text" class="reading-container" style="margin-top:0;"></div>
+            `;
+
+            const readText = document.getElementById('clipboard-read-text');
+            const verseRefMap = new Map();
+            currentData.forEach(x => {
+                if (x.type === 'verse' && x.book && x.reference) {
+                    const key = `${normalizeBookName(x.book)}_${x.reference}`;
+                    if (!verseRefMap.has(key)) verseRefMap.set(key, x);
+                }
+            });
+            const findVerseByRef = (refStr) => {
+                const m = refStr.trim().match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+                if (m) {
+                    const book = normalizeBookName(m[1]);
+                    const chap = m[2];
+                    const start = m[3] ? parseInt(m[3]) : null;
+                    const end = m[4] ? parseInt(m[4]) : null;
+                    if (start && !end) {
+                        return verseRefMap.get(`${book}_${chap}:${start}`) || null;
+                    }
+                    if (start && end) {
+                        return { book, chap, start, end };
+                    }
+                    return { book, chap };
+                }
+                const bookOnly = refStr.trim();
+                if (bookOnly) {
+                    return { book: normalizeBookName(bookOnly) };
+                }
+                return null;
+            };
+
+            const lines = clipboard.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x);
+            lines.forEach(line => {
+                const parsed = findVerseByRef(line);
+                if (!parsed) {
+                    const infoBlock = document.createElement('div');
+                    infoBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#fff3cd; border-radius:8px; color:#856404;';
+                    infoBlock.textContent = `No se pudo interpretar: ${line}`;
+                    readText.appendChild(infoBlock);
+                    return;
+                }
+
+                let verses = [];
+                if (parsed.start && parsed.end) {
+                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book && v.chapter===parsed.chap && (() => {
+                        const num = parseInt((v.reference||'').split(':')[1]||0);
+                        return num >= parsed.start && num <= parsed.end;
+                    })());
+                } else if (parsed.start) {
+                    const found = verseRefMap.get(`${parsed.book}_${parsed.chap}:${parsed.start}`);
+                    if (found) verses = [found];
+                } else if (parsed.chap) {
+                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book && v.chapter===parsed.chap);
+                } else {
+                    verses = currentData.filter(v => v.type==='verse' && normalizeBookName(v.book)===parsed.book);
+                }
+
+                if (verses.length === 0) {
+                    const emptyBlock = document.createElement('div');
+                    emptyBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#fdecea; border-radius:8px; color:#c0392b;';
+                    emptyBlock.textContent = `No se encontraron versículos para ${line}`;
+                    readText.appendChild(emptyBlock);
+                    return;
+                }
+
+                let titleText = line;
+                const section = document.createElement('div');
+                section.style.marginBottom = '20px';
+                section.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">📖 ${titleText}</h3>`;
+                verses.sort((a,b) => parseInt((a.reference||'').split(':')[1]||0) - parseInt((b.reference||'').split(':')[1]||0)).forEach(v => {
+                    const span = document.createElement('span');
+                    span.className = 'verse-text-span';
+                    span.dataset.ref = `${v.book} ${v.reference}`;
+                    span.dataset.version = v.version || '';
+                    const refStr = v.reference || '';
+                    const colonIdx = refStr.lastIndexOf(':');
+                    const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
+                    span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)}`;
+                    attachVerseTapBehavior(span, v.id);
+                    section.appendChild(span);
+                });
+                readText.appendChild(section);
+            });
+
+            const copyBtn = document.getElementById('btn-copy-clipboard-all');
+            if (copyBtn) copyBtn.onclick = () => window.copyClipboardRefs(clipboard);
         };
 
         window.viewSession = (session, fromHistory = false) => {
