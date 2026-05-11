@@ -115,8 +115,39 @@
             document.querySelectorAll('.sidebar-tabs button').forEach(b => b.classList.remove('active'));
             const tb = document.getElementById('tab-' + t);
             if (tb) tb.classList.add('active');
-            
-            if (t === 'books') renderSidebarBooks();
+            if (t === 'books') {
+                document.getElementById('tab-books').classList.add('active');
+                renderSidebarBooks();
+                
+                let readArr = JSON.parse(localStorage.getItem('biblia_read_verses') || '[]');
+                let totalVerses = currentData.filter(x => x.type === 'verse').length;
+                let percent = totalVerses > 0 ? (readArr.length / totalVerses * 100).toFixed(2) : 0;
+                
+                let progressDiv = document.createElement('div');
+                progressDiv.innerHTML = `
+                    <div style="padding:10px; background:#f4f9f9; border-bottom:1px solid #ddd; margin-bottom:10px; border-radius:5px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
+                            <span>Progreso de Lectura</span>
+                            <span>${percent}%</span>
+                        </div>
+                        <div style="width:100%; background:#e0e0e0; height:8px; border-radius:4px; overflow:hidden;">
+                            <div style="width:${percent}%; background:var(--secondary); height:100%;"></div>
+                        </div>
+                        <div style="font-size:0.75rem; color:#666; margin-top:5px; text-align:right;">${readArr.length} / ${totalVerses} versículos leídos</div>
+                        <button id="btn-show-history" style="width:100%; margin-top:8px; padding:6px; background:var(--primary); color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">Ver Historial de Lectura</button>
+                    </div>
+                `;
+                if(sidebarContent.firstChild) {
+                    sidebarContent.insertBefore(progressDiv, sidebarContent.firstChild);
+                } else {
+                    sidebarContent.appendChild(progressDiv);
+                }
+                
+                let historyBtn = document.getElementById('btn-show-history');
+                if(historyBtn && window.viewReadingHistory) {
+                    historyBtn.onclick = window.viewReadingHistory;
+                }
+            }
             else if (t === 'persp') {
                 if (sidebarContent) {
                     sidebarContent.innerHTML = `
@@ -287,21 +318,46 @@
                             let sShow = isEdit ? existingSession.showStudy : true;
 
                             mainView.innerHTML = `
-                                <div class="verse-card" style="padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-                                    <h2>${isEdit ? '✏️ Editar Sesión' : '📅 Nueva Sesión / Agenda'}</h2>
-                                    <label style="font-weight:bold;">Fecha:</label>
-                                    <input type="date" id="ses-date" value="${sDate}" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
-                                    <label style="font-weight:bold;">Título de la Sesión:</label>
-                                    <input type="text" id="ses-title" value="${sTitle}" placeholder="Ej: Servicio de Domingo" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
-                                    <label style="font-weight:bold;">Versículos a incluir (uno por línea):</label>
-                                    <p style="font-size:0.85rem; color:#666; margin-bottom:5px;">Ejemplo: <b>Salmos 109:3-9</b> o <b>Juan 3:16</b></p>
-                                    <textarea id="ses-refs" rows="7" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-family:monospace;">${sRefs}</textarea>
-                                    <label style="display:flex; align-items:center; gap:10px; margin-bottom:20px; font-weight:bold; cursor:pointer;">
-                                        <input type="checkbox" id="ses-show-study" ${sShow ? 'checked' : ''} style="transform:scale(1.5);"> Mostrar Notas de Estudio durante la sesión
-                                    </label>
-                                    <button id="btn-save-session" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer; font-size:1.1rem; font-weight:bold;">💾 Guardar Sesión</button>
+                                <div class="verse-card" style="padding:15px; max-width:650px; margin:0 auto; box-shadow:0 4px 15px rgba(0,0,0,0.1); border-top:4px solid var(--primary);">
+                                    <h2 style="font-size:1.3rem; margin-bottom:15px;">${isEdit ? '✏️ Editar Sesión' : '📅 Nueva Sesión / Agenda'}</h2>
+                                    
+                                    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                                        <div style="flex:1; min-width:140px;">
+                                            <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Fecha: <span id="ses-day-name" style="color:var(--secondary); font-weight:normal;"></span></label>
+                                            <input type="date" id="ses-date" value="${sDate}" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:0.9rem;">
+                                        </div>
+                                        <div style="flex:2; min-width:200px;">
+                                            <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Título / Ocasión:</label>
+                                            <input type="text" id="ses-title" value="${sTitle}" placeholder="Ej: Servicio de Domingo" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; font-size:0.9rem;">
+                                        </div>
+                                    </div>
+
+                                    <label style="font-weight:bold; font-size:0.85rem; color:#555; display:block; margin-bottom:3px;">Versículos a incluir:</label>
+                                    <p style="font-size:0.75rem; color:#888; margin-bottom:5px; line-height:1.2;">Ejemplo: <b>Salmos 109:3-9</b> o <b>Juan 3:16</b> (uno por línea)</p>
+                                    <textarea id="ses-refs" rows="6" style="width:100%; padding:8px; margin-bottom:10px; border-radius:5px; border:1px solid #ccc; font-family:monospace; font-size:0.85rem; resize:vertical;">${sRefs}</textarea>
+                                    
+                                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                        <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:0.85rem; cursor:pointer;">
+                                            <input type="checkbox" id="ses-show-study" ${sShow ? 'checked' : ''} style="transform:scale(1.2);"> Mostrar Notas de Estudio
+                                        </label>
+                                        <button id="btn-save-session" style="padding:10px 20px; background:var(--primary); color:white; border:none; border-radius:6px; cursor:pointer; font-size:1rem; font-weight:bold;">💾 Guardar Sesión</button>
+                                    </div>
                                 </div>
                             `;
+
+                            const updateDayName = () => {
+                                let d = document.getElementById('ses-date').value;
+                                if(d) {
+                                    let dateObj = new Date(d + 'T12:00:00');
+                                    let days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                    document.getElementById('ses-day-name').textContent = `(${days[dateObj.getDay()]})`;
+                                } else {
+                                    document.getElementById('ses-day-name').textContent = '';
+                                }
+                            };
+                            document.getElementById('ses-date').addEventListener('change', updateDayName);
+                            updateDayName();
+
                             document.getElementById('btn-save-session').onclick = () => {
                                 let d = document.getElementById('ses-date').value;
                                 let t = document.getElementById('ses-title').value;

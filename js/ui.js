@@ -128,7 +128,8 @@
                     }
                 };
             }
-            setEditor({ type: 'verse', id: v.id }, "Título de mi nota personal...");
+            if (v.text) setEditor({ type: 'verse', id: v.id }, "Nota para este versículo...");
+            else setEditor(null);
 
             const fill = (data, btnDivId, contDivId, isBase) => {
                 const btnDiv = document.getElementById(btnDivId);
@@ -517,6 +518,7 @@
                 if (activeVerse) {
                     activeVerse.classList.add('active-reading');
                     if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
+                    if(window.markVerseAsRead) window.markVerseAsRead(activeVerse.dataset.ref, activeVerse.textContent);
                 }
             }, { rootMargin: '-20% 0px -20% 0px' });
 
@@ -824,61 +826,76 @@
                     });
                     
                     if(verses.length > 0) {
+                        let chapterBlock = document.createElement('div');
+                        chapterBlock.style.marginBottom = '20px';
+                        chapterBlock.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">📖 ${match[1].trim()} ${chap}:${vStart}${match[4] ? '-'+match[4] : ''}</h3>`;
+                        
                         verses.sort((a,b) => parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1])).forEach((v) => {
-                            let divBlock = document.createElement('div');
-                            divBlock.style.cssText = 'margin-bottom:20px; background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left:4px solid var(--primary);';
+                            let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
+                            let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
+                            let hasR = v.cross_references && v.cross_references.length > 0;
+
+                            let span = document.createElement('span');
+                            span.className = 'verse-text-span tooltip';
                             
-                            // Versículo Head
-                            let vHeader = document.createElement('h3');
-                            vHeader.style.cssText = 'color:var(--primary); margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #eee; padding-bottom:5px;';
-                            vHeader.textContent = `📖 ${v.book} ${v.reference}`;
-                            divBlock.appendChild(vHeader);
+                            let tooltipContent = '';
                             
-                            let vText = document.createElement('p');
-                            vText.style.cssText = 'font-size:1.2rem; font-style:italic; line-height:1.5; margin-bottom:15px;';
-                            vText.innerHTML = window.formatVerseText(v.text);
-                            divBlock.appendChild(vText);
-                            
-                            // Cross references
-                            if (v.cross_references && v.cross_references.length > 0) {
-                                let crDiv = document.createElement('div');
-                                crDiv.style.cssText = 'margin-bottom:15px;';
-                                crDiv.innerHTML = `<h4 style="color:var(--secondary); margin-bottom:5px; font-size:0.95rem;">🔗 Referencias Bíblicas:</h4>`;
+                            // Cross references en tooltip
+                            if(hasR) {
+                                tooltipContent += `<b style="color:#aef;">🔗 REFERENCIAS:</b><br>`;
                                 v.cross_references.forEach(ref => {
                                     const crFound = findVerseByRef(ref);
-                                    let crP = document.createElement('div');
-                                    crP.style.cssText = 'padding:6px 10px; margin-bottom:4px; background:#f4f9f9; border-radius:5px; border-left:2px solid var(--secondary); font-size:0.9rem; cursor:pointer;';
-                                    crP.innerHTML = `<b>${ref}</b> — ${crFound ? window.formatVerseText(crFound.text) : '<i>(Texto no disponible)</i>'}`;
-                                    if(crFound) crP.onclick = () => window.viewSingleVerse(crFound.id);
-                                    crDiv.appendChild(crP);
+                                    tooltipContent += `<span style="font-size:0.9em;"><b>${ref}</b> - ${crFound ? window.formatVerseText(crFound.text) : ''}</span><br>`;
                                 });
-                                divBlock.appendChild(crDiv);
+                                tooltipContent += `<br>`;
                             }
                             
-                            // Mis notas (perspectives)
-                            if (v.perspectives && Object.keys(v.perspectives).length > 0) {
-                                let myDiv = document.createElement('div');
-                                myDiv.style.cssText = 'margin-bottom:15px; padding:10px; background:#fdf8e3; border:1px solid #fbeed5; border-radius:5px; border-left:3px solid #f39c12;';
-                                myDiv.innerHTML = `<h4 style="color:#e67e22; margin-bottom:5px; font-size:0.95rem;">✍️ Mis Notas:</h4>`;
-                                Object.entries(v.perspectives).forEach(([k, val]) => {
-                                    myDiv.innerHTML += `<p style="font-size:0.95rem; margin-bottom:5px;"><b>${k}:</b> ${val}</p>`;
-                                });
-                                divBlock.appendChild(myDiv);
+                            if(session.showStudy && hasB) {
+                                tooltipContent += `<b style="color:#f1c40f;">📚 ESTUDIO:</b><br>${Object.entries(v.base_perspectives).map(([k,val])=>`<b>${k.replace(/_/g,' ').toUpperCase()}:</b> ${val}`).join('<br>')}<br><br>`;
+                            }
+                            if(hasP) {
+                                tooltipContent += `<b style="color:#2ecc71;">✍️ MI NOTA:</b><br>${Object.entries(v.perspectives).map(([k,val])=>`<b>${k}:</b> ${val}`).join('<br>')}`;
                             }
 
-                            // Notas de estudio
-                            if (session.showStudy && v.base_perspectives && Object.keys(v.base_perspectives).length > 0) {
-                                let stDiv = document.createElement('div');
-                                stDiv.style.cssText = 'margin-bottom:5px; padding:10px; background:#fcfcfc; border:1px solid #eee; border-radius:5px;';
-                                stDiv.innerHTML = `<h4 style="color:#666; margin-bottom:5px; font-size:0.9rem;">📚 Notas de Estudio:</h4>`;
-                                Object.entries(v.base_perspectives).forEach(([k, val]) => {
-                                    stDiv.innerHTML += `<p style="font-size:0.9rem; margin-bottom:5px;"><b>${k.replace(/_/g,' ').toUpperCase()}:</b> ${val}</p>`;
-                                });
-                                divBlock.appendChild(stDiv);
-                            }
+                            let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
+                            let dotHTML = '';
+                            if (hasB) dotHTML += `<span class="has-persp-dot base" title="Notas de estudio"></span>`;
+                            if (hasP) dotHTML += `<span class="has-persp-dot" style="background:#27ae60;width:6px;height:6px;" title="Nota personal"></span>`;
+                            if (hasR) dotHTML += `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;" title="Referencias cruzadas"></span>`;
+
+                            span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${tooltipContent ? dotHTML + '<span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
+                            span.onclick = () => window.viewSingleVerse(v.id);
                             
-                            readText.appendChild(divBlock);
+                            chapterBlock.appendChild(span);
+                            
+                            // Mis notas (perspectives) inline después del versículo si se pidió
+                            if (hasP) {
+                                let myDiv = document.createElement('div');
+                                myDiv.style.cssText = 'margin:10px 0; padding:10px; background:#fdf8e3; border:1px solid #fbeed5; border-radius:5px; border-left:3px solid #f39c12; font-size:0.95rem;';
+                                myDiv.innerHTML = `<b style="color:#e67e22;">✍️ Mis Notas (${v.reference}):</b><br>`;
+                                Object.entries(v.perspectives).forEach(([k, val]) => {
+                                    myDiv.innerHTML += `<b>${k}:</b> ${val}<br>`;
+                                });
+                                chapterBlock.appendChild(myDiv);
+                            }
+
+                            // Referencias Cruzadas inline
+                            if (hasR) {
+                                let crDiv = document.createElement('div');
+                                crDiv.style.cssText = 'margin:10px 0; padding:10px; background:#f4f9f9; border-radius:5px; border-left:2px solid var(--secondary); font-size:0.9rem;';
+                                crDiv.innerHTML = `<b style="color:var(--secondary);">🔗 Referencias Bíblicas (${v.reference}):</b><br>`;
+                                v.cross_references.forEach(ref => {
+                                    const crFound = findVerseByRef(ref);
+                                    let p = document.createElement('div');
+                                    p.style.cssText = 'margin-top:4px; cursor:pointer;';
+                                    p.innerHTML = `<b>${ref}</b> — ${crFound ? window.formatVerseText(crFound.text) : '<i>(Texto no disponible)</i>'}`;
+                                    if(crFound) p.onclick = () => window.viewSingleVerse(crFound.id);
+                                    crDiv.appendChild(p);
+                                });
+                                chapterBlock.appendChild(crDiv);
+                            }
                         });
+                        readText.appendChild(chapterBlock);
                     }
                 } else {
                     let matches = currentData.filter(x => x.type === 'verse' && x.text && x.text.toLowerCase().includes(line.toLowerCase()));
@@ -916,3 +933,95 @@
 
             setEditor({ type: 'session_note', id: session.id }, "Añadir nota general a la sesión...");
         };
+
+        window.markVerseAsRead = (ref, textStr = '') => {
+            if(!ref) return;
+            let readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
+            if(!readSet.has(ref)) {
+                readSet.add(ref);
+                localStorage.setItem('biblia_read_verses', JSON.stringify([...readSet]));
+                
+                let history = JSON.parse(localStorage.getItem('biblia_history') || '[]');
+                history = history.filter(x => x.ref !== ref);
+                history.unshift({ref: ref, date: new Date().toISOString(), snippet: textStr.substring(0, 50) + '...'});
+                if(history.length > 200) history.pop();
+                localStorage.setItem('biblia_history', JSON.stringify(history));
+                
+                // Si la pestaña actual es books, podemos disparar una actualización visual
+                let pBar = document.querySelector('#sidebar-content > div:first-child');
+                if (pBar && pBar.innerText.includes('Progreso')) {
+                    let totalVerses = currentData.filter(x => x.type === 'verse').length;
+                    let percent = totalVerses > 0 ? (readSet.size / totalVerses * 100).toFixed(2) : 0;
+                    pBar.querySelector('div > span:nth-child(2)').innerText = percent + '%';
+                    pBar.querySelector('div:nth-child(2) > div').style.width = percent + '%';
+                    pBar.querySelector('div:nth-child(3)').innerText = `${readSet.size} / ${totalVerses} versículos leídos`;
+                }
+            }
+        };
+
+        window.viewReadingHistory = () => {
+            pushHistory('viewReadingHistory', []);
+            if (!mainView) return;
+            let history = JSON.parse(localStorage.getItem('biblia_history') || '[]');
+            
+            mainView.innerHTML = `
+                <div class="reading-container">
+                    <h2 style="color:var(--primary); margin-bottom:20px; border-bottom:2px solid var(--secondary); padding-bottom:10px;">🕒 Historial Reciente de Lectura</h2>
+                    ${history.length === 0 ? '<p>No hay historial todavía. ¡Comienza a leer!</p>' : ''}
+                    <div id="history-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+                </div>
+            `;
+            const list = document.getElementById('history-list');
+            history.forEach(item => {
+                let d = document.createElement('div');
+                d.style.cssText = "padding:12px; background:#f9f9f9; border-radius:8px; border-left:4px solid var(--primary); cursor:pointer;";
+                let dateStr = new Date(item.date).toLocaleString();
+                d.innerHTML = `<div style="font-size:0.8rem; color:#888;">${dateStr}</div>
+                               <div style="font-weight:bold; font-size:1.1rem; color:var(--primary);">${item.ref}</div>
+                               <div style="font-style:italic; color:#555; font-size:0.9rem; margin-top:4px;">"${item.snippet}"</div>`;
+                
+                d.onclick = () => {
+                    let matches = currentData.filter(x => x.type === 'verse' && (x.book + ' ' + x.reference) === item.ref);
+                    if(matches.length > 0) window.viewSingleVerse(matches[0].id);
+                };
+                list.appendChild(d);
+            });
+            setEditor(null);
+        };
+
+        document.addEventListener('selectionchange', () => {
+            let sel = window.getSelection();
+            let text = sel.toString().trim();
+            let btn = document.getElementById('search-selection-btn');
+            
+            if(text && text.length >= 3 && text.length <= 30 && /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(text)) {
+                if(!btn) {
+                    btn = document.createElement('button');
+                    btn.id = 'search-selection-btn';
+                    btn.innerHTML = `🔍 Tema: "${text}"`;
+                    btn.style.cssText = 'position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--secondary); color:white; border:none; padding:12px 24px; border-radius:30px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:9999; font-weight:bold; cursor:pointer; font-size:1rem; transition: transform 0.1s;';
+                    btn.onmousedown = () => { btn.style.transform = 'translateX(-50%) scale(0.95)'; };
+                    document.body.appendChild(btn);
+                } else {
+                    btn.innerHTML = `🔍 Tema: "${text}"`;
+                }
+                
+                btn.onclick = () => {
+                    sel.removeAllRanges();
+                    btn.remove();
+                    window.switchTab('persp');
+                    setTimeout(() => {
+                        let searchInput = document.getElementById('w-search');
+                        if(searchInput) {
+                            searchInput.value = text;
+                            searchInput.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter'}));
+                        }
+                    }, 100);
+                };
+                
+                clearTimeout(window.searchBtnTimeout);
+                window.searchBtnTimeout = setTimeout(() => { if(btn) btn.remove(); }, 6000);
+            } else {
+                if(btn) btn.remove();
+            }
+        });
