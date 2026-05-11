@@ -277,27 +277,27 @@
 
         .btn-back {
             position: absolute;
-            bottom: 30px;
+            top: 60px;
             left: 30px;
-            background: var(--primary);
-            color: white;
+            background: transparent;
+            color: var(--primary);
             border: none;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
             cursor: pointer;
-            font-size: 1.5rem;
+            font-size: 2.2rem;
+            font-weight: bold;
+            z-index: 100;
+            opacity: 0.4;
+            transition: transform 0.2s, opacity 0.2s, color 0.2s;
+            text-shadow: 0 0 8px rgba(255,255,255,0.8);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: transform 0.2s, background 0.2s;
         }
 
         .btn-back:hover {
-            transform: scale(1.1);
-            background: var(--secondary);
+            transform: scale(1.15) translateX(-3px);
+            opacity: 1;
+            color: var(--secondary);
         }
 
         /* Tracker Flotante */
