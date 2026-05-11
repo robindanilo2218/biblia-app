@@ -239,9 +239,13 @@
                         sessions.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach((s, idx) => {
                             let d = document.createElement('div');
                             d.style = "display:flex; justify-content:space-between; background:#e8f4f8; padding:10px; border-radius:5px; cursor:pointer; border-left:4px solid var(--primary);";
-                            d.innerHTML = `<div style="flex:1;"><b>${s.date}</b><br><span style="font-size:0.9rem;">${s.title}</span></div><button style="border:none; background:none; cursor:pointer; color:red; font-size:1.1rem;">✖</button>`;
+                            d.innerHTML = `<div style="flex:1;"><b>${s.date}</b><br><span style="font-size:0.9rem;">${s.title}</span></div><button class="btn-edit-ses" style="border:none; background:none; cursor:pointer; color:var(--secondary); font-size:1.1rem; margin-right:5px;" title="Editar sesión">✏️</button><button class="btn-del-ses" style="border:none; background:none; cursor:pointer; color:red; font-size:1.1rem;" title="Eliminar sesión">✖</button>`;
                             d.querySelector('div').onclick = () => window.viewSession(s);
-                            d.querySelector('button').onclick = (e) => {
+                            d.querySelector('.btn-edit-ses').onclick = (e) => {
+                                e.stopPropagation();
+                                window.openSessionEditor(s);
+                            };
+                            d.querySelector('.btn-del-ses').onclick = (e) => {
                                 e.stopPropagation();
                                 if(confirm("¿Eliminar sesión?")) {
                                     sessions.splice(idx, 1);
@@ -254,20 +258,30 @@
                     };
                     renderSessions();
 
-                    document.getElementById('btn-new-session').onclick = () => {
+                    window.openSessionEditor = (existingSession = null) => {
                         if(mainView) {
+                            let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_refs') || '[]');
+                            let defaultRefs = draftRefs.join('\n');
+                            
+                            let isEdit = !!existingSession;
+                            let sId = isEdit ? existingSession.id : 'ses_'+Date.now();
+                            let sDate = isEdit ? existingSession.date : '';
+                            let sTitle = isEdit ? existingSession.title : '';
+                            let sRefs = isEdit ? existingSession.refs : defaultRefs;
+                            let sShow = isEdit ? existingSession.showStudy : true;
+
                             mainView.innerHTML = `
                                 <div class="verse-card" style="padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-                                    <h2>📅 Nueva Sesión / Agenda</h2>
+                                    <h2>${isEdit ? '✏️ Editar Sesión' : '📅 Nueva Sesión / Agenda'}</h2>
                                     <label style="font-weight:bold;">Fecha:</label>
-                                    <input type="date" id="ses-date" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
+                                    <input type="date" id="ses-date" value="${sDate}" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
                                     <label style="font-weight:bold;">Título de la Sesión:</label>
-                                    <input type="text" id="ses-title" placeholder="Ej: Servicio de Domingo" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
+                                    <input type="text" id="ses-title" value="${sTitle}" placeholder="Ej: Servicio de Domingo" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc;">
                                     <label style="font-weight:bold;">Versículos a incluir (uno por línea):</label>
                                     <p style="font-size:0.85rem; color:#666; margin-bottom:5px;">Ejemplo: <b>Salmos 109:3-9</b> o <b>Juan 3:16</b></p>
-                                    <textarea id="ses-refs" rows="5" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-family:monospace;"></textarea>
+                                    <textarea id="ses-refs" rows="7" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-family:monospace;">${sRefs}</textarea>
                                     <label style="display:flex; align-items:center; gap:10px; margin-bottom:20px; font-weight:bold; cursor:pointer;">
-                                        <input type="checkbox" id="ses-show-study" checked style="transform:scale(1.5);"> Mostrar Notas de Estudio durante la sesión
+                                        <input type="checkbox" id="ses-show-study" ${sShow ? 'checked' : ''} style="transform:scale(1.5);"> Mostrar Notas de Estudio durante la sesión
                                     </label>
                                     <button id="btn-save-session" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer; font-size:1.1rem; font-weight:bold;">💾 Guardar Sesión</button>
                                 </div>
@@ -280,15 +294,26 @@
                                 if(!d || !t) return alert("La fecha y el título son obligatorios.");
                                 
                                 let sessions = JSON.parse(localStorage.getItem('biblia_sessions') || '[]');
-                                let newSession = { id: 'ses_'+Date.now(), date: d, title: t, refs: r, showStudy: sh };
-                                sessions.push(newSession);
+                                let newSession = { id: sId, date: d, title: t, refs: r, showStudy: sh };
+                                
+                                if (isEdit) {
+                                    let idx = sessions.findIndex(x => x.id === sId);
+                                    if (idx > -1) sessions[idx] = newSession;
+                                } else {
+                                    sessions.push(newSession);
+                                }
+                                
                                 localStorage.setItem('biblia_sessions', JSON.stringify(sessions));
+                                if (!isEdit) localStorage.removeItem('biblia_draft_refs');
                                 renderSessions();
                                 toast("Sesión guardada exitosamente", false);
                                 window.viewSession(newSession);
                             };
                         }
                     };
+
+                    document.getElementById('btn-new-session').onclick = () => window.openSessionEditor();
+
                 }
             }
             else if (t === 'info') {

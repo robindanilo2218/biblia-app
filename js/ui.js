@@ -265,7 +265,7 @@
 
             mainView.innerHTML = `
                 <div class="reading-container">
-                    <h2>${title}</h2>
+                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession('${target.type === 'chapter' ? target.book + ' ' + target.chapter : title}')" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button></h2>
                     <div id="notes-top"></div>
                     <div id="read-text"></div>
                 </div>`;
@@ -536,8 +536,8 @@
                 // Separador capítulo
                 if (isMultiCap && vChap !== lastChap) {
                     const cd = document.createElement('div');
-                    cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px;';
-                    cd.textContent = `Capítulo ${vChap}`;
+                    cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px; display:flex; align-items:center;';
+                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button>Capítulo ${vChap}`;
                     readText.appendChild(cd);
                     lastChap = vChap;
                 }
@@ -591,7 +591,7 @@
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
-                span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
+                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession('${v.book} ${v.reference}')" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
@@ -768,6 +768,13 @@
             }
         };
 
+        window.addToDraftSession = (ref) => {
+            let refs = JSON.parse(localStorage.getItem('biblia_draft_refs') || '[]');
+            refs.push(ref);
+            localStorage.setItem('biblia_draft_refs', JSON.stringify(refs));
+            if (window.toast) window.toast("Añadido a la sesión en borrador", false);
+        };
+
         window.viewSession = (session, fromHistory = false) => {
             if (!fromHistory) pushHistory('viewSession', [session]);
             if (!mainView) return;
@@ -778,19 +785,35 @@
                     <p style="white-space:pre-wrap; font-size:0.9rem; margin-top:10px; border-top:1px solid rgba(255,255,255,0.3); padding-top:10px;"><b>Contenido de la Sesión:</b><br>${session.refs}</p>
                 </div>
                 <div id="session-read-text" class="reading-container" style="margin-top:0;"></div>
+                <div id="session-notes-container" style="margin-top:20px; margin-bottom:20px; padding:0 15px;"></div>
             `;
             const readText = document.getElementById('session-read-text');
+            const notesContainer = document.getElementById('session-notes-container');
             
+            const verseRefMap = new Map();
+            currentData.forEach(x => {
+                if (x.type === 'verse' && x.book && x.reference) {
+                    const key = `${normalizeBookName(x.book)}_${x.reference}`;
+                    if (!verseRefMap.has(key)) verseRefMap.set(key, x);
+                }
+            });
+            const findVerseByRef = (refStr) => {
+                const m = refStr.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
+                if (!m) return null;
+                const key = `${normalizeBookName(m[1])}_${m[2]}:${m[3]}`;
+                return verseRefMap.get(key) || null;
+            };
+
             // Parse references
             let lines = session.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x);
             
             lines.forEach(line => {
-                let match = line.match(/(.+?)\s+(\d+):(\d+)(?:\s*-\s*(\d+))?/);
+                let match = line.match(/(.+?)\s+(\d+)(?::(\d+)(?:\s*-\s*(\d+))?)?/);
                 if(match) {
                     let bName = normalizeBookName(match[1].trim());
                     let chap = match[2];
-                    let vStart = parseInt(match[3]);
-                    let vEnd = match[4] ? parseInt(match[4]) : vStart;
+                    let vStart = match[3] ? parseInt(match[3]) : 1;
+                    let vEnd = match[4] ? parseInt(match[4]) : (match[3] ? vStart : 999);
                     
                     let verses = currentData.filter(v => {
                         if(v.type !== 'verse') return false;
@@ -801,52 +824,71 @@
                     });
                     
                     if(verses.length > 0) {
-                        let divBlock = document.createElement('div');
-                        divBlock.style.marginBottom = '20px';
-                        divBlock.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">📖 ${match[1].trim()} ${chap}:${vStart}${match[4] ? '-'+match[4] : ''}</h3>`;
-                        
-                        verses.sort((a,b) => parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1])).forEach(v => {
-                            let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
-                            let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
-                            let span = document.createElement('span');
-                            span.className = 'verse-text-span tooltip';
+                        verses.sort((a,b) => parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1])).forEach((v) => {
+                            let divBlock = document.createElement('div');
+                            divBlock.style.cssText = 'margin-bottom:20px; background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left:4px solid var(--primary);';
                             
-                            let tooltipContent = '';
-                            if(session.showStudy && hasB) {
-                                tooltipContent += `<b>ESTUDIO:</b><br>${Object.values(v.base_perspectives).join('<br>')}<br><br>`;
+                            // Versículo Head
+                            let vHeader = document.createElement('h3');
+                            vHeader.style.cssText = 'color:var(--primary); margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #eee; padding-bottom:5px;';
+                            vHeader.textContent = `📖 ${v.book} ${v.reference}`;
+                            divBlock.appendChild(vHeader);
+                            
+                            let vText = document.createElement('p');
+                            vText.style.cssText = 'font-size:1.2rem; font-style:italic; line-height:1.5; margin-bottom:15px;';
+                            vText.innerHTML = window.formatVerseText(v.text);
+                            divBlock.appendChild(vText);
+                            
+                            // Cross references
+                            if (v.cross_references && v.cross_references.length > 0) {
+                                let crDiv = document.createElement('div');
+                                crDiv.style.cssText = 'margin-bottom:15px;';
+                                crDiv.innerHTML = `<h4 style="color:var(--secondary); margin-bottom:5px; font-size:0.95rem;">🔗 Referencias Bíblicas:</h4>`;
+                                v.cross_references.forEach(ref => {
+                                    const crFound = findVerseByRef(ref);
+                                    let crP = document.createElement('div');
+                                    crP.style.cssText = 'padding:6px 10px; margin-bottom:4px; background:#f4f9f9; border-radius:5px; border-left:2px solid var(--secondary); font-size:0.9rem; cursor:pointer;';
+                                    crP.innerHTML = `<b>${ref}</b> — ${crFound ? window.formatVerseText(crFound.text) : '<i>(Texto no disponible)</i>'}`;
+                                    if(crFound) crP.onclick = () => window.viewSingleVerse(crFound.id);
+                                    crDiv.appendChild(crP);
+                                });
+                                divBlock.appendChild(crDiv);
                             }
-                            if(hasP) {
-                                tooltipContent += `<b>MI NOTA:</b><br>${Object.values(v.perspectives).join('<br>')}`;
+                            
+                            // Mis notas (perspectives)
+                            if (v.perspectives && Object.keys(v.perspectives).length > 0) {
+                                let myDiv = document.createElement('div');
+                                myDiv.style.cssText = 'margin-bottom:15px; padding:10px; background:#fdf8e3; border:1px solid #fbeed5; border-radius:5px; border-left:3px solid #f39c12;';
+                                myDiv.innerHTML = `<h4 style="color:#e67e22; margin-bottom:5px; font-size:0.95rem;">✍️ Mis Notas:</h4>`;
+                                Object.entries(v.perspectives).forEach(([k, val]) => {
+                                    myDiv.innerHTML += `<p style="font-size:0.95rem; margin-bottom:5px;"><b>${k}:</b> ${val}</p>`;
+                                });
+                                divBlock.appendChild(myDiv);
                             }
 
-                            let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
-                            span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${tooltipContent ? '<span class="has-persp-dot"></span><span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
-                            
-                            span.onclick = () => window.viewSingleVerse(v.id);
-                            divBlock.appendChild(span);
-                            
-                            if(session.showStudy && hasB) {
-                                let studyDiv = document.createElement('div');
-                                studyDiv.style = "background:#f9f9f9; padding:10px; margin:10px 0; border-left:4px solid var(--secondary); font-size:0.95rem; border-radius:5px;";
-                                let sText = Object.entries(v.base_perspectives).map(([k,val]) => `<b>${k.replace(/_/g,' ').toUpperCase()}:</b> ${val}`).join('<br><br>');
-                                studyDiv.innerHTML = sText;
-                                divBlock.appendChild(studyDiv);
+                            // Notas de estudio
+                            if (session.showStudy && v.base_perspectives && Object.keys(v.base_perspectives).length > 0) {
+                                let stDiv = document.createElement('div');
+                                stDiv.style.cssText = 'margin-bottom:5px; padding:10px; background:#fcfcfc; border:1px solid #eee; border-radius:5px;';
+                                stDiv.innerHTML = `<h4 style="color:#666; margin-bottom:5px; font-size:0.9rem;">📚 Notas de Estudio:</h4>`;
+                                Object.entries(v.base_perspectives).forEach(([k, val]) => {
+                                    stDiv.innerHTML += `<p style="font-size:0.9rem; margin-bottom:5px;"><b>${k.replace(/_/g,' ').toUpperCase()}:</b> ${val}</p>`;
+                                });
+                                divBlock.appendChild(stDiv);
                             }
+                            
+                            readText.appendChild(divBlock);
                         });
-                        readText.appendChild(divBlock);
                     }
                 } else {
-                    // Texto libre o búsqueda
                     let matches = currentData.filter(x => x.type === 'verse' && x.text && x.text.toLowerCase().includes(line.toLowerCase()));
                     if(matches.length > 0) {
                         let divBlock = document.createElement('div');
-                        divBlock.style.marginBottom = '20px';
+                        divBlock.style.cssText = 'margin-bottom:20px; background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05);';
                         divBlock.innerHTML = `<h3 style="color:var(--primary); border-bottom:2px solid var(--secondary); padding-bottom:5px;">🔍 Búsqueda rápida: ${line}</h3>`;
                         matches.slice(0, 5).forEach(v => { 
                             let p = document.createElement('p');
-                            p.style.cursor = 'pointer';
-                            p.style.padding = '5px';
-                            p.style.borderBottom = '1px dashed #ccc';
+                            p.style.cssText = 'cursor:pointer; padding:8px; border-bottom:1px dashed #eee; font-size:1.1rem;';
                             p.innerHTML = `<b>${v.book} ${v.reference}:</b> "${window.formatVerseText(v.text)}"`;
                             p.onclick = () => window.viewSingleVerse(v.id);
                             divBlock.appendChild(p);
@@ -855,5 +897,22 @@
                     }
                 }
             });
-            setEditor({ type: 'session', id: session.id }, "Añadir nota general a la sesión...");
+
+            // Session Notes
+            let sessionNotes = currentData.filter(x => x.type === 'session_note' && x.id === session.id);
+            if (sessionNotes.length > 0) {
+                notesContainer.innerHTML = `<h3 style="border-bottom:2px solid var(--primary); padding-bottom:5px; color:var(--primary);">📝 Notas Generales de la Sesión</h3>`;
+                sessionNotes.forEach(n => {
+                    if (n.perspectives) {
+                        Object.entries(n.perspectives).forEach(([k, v]) => {
+                            notesContainer.innerHTML += `<div style="background:#f9f9f9; padding:15px; border-radius:8px; border-left:4px solid var(--primary); margin-top:10px;">
+                                <h4 style="margin:0 0 5px 0;">${k}</h4>
+                                <p style="margin:0; white-space:pre-wrap;">${v}</p>
+                            </div>`;
+                        });
+                    }
+                });
+            }
+
+            setEditor({ type: 'session_note', id: session.id }, "Añadir nota general a la sesión...");
         };
