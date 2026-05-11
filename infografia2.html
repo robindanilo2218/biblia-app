@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPA Infographic Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+                max-width: 700px;
+            }
+        }
+
+        .bg-teal-custom {
+            background-color: #0d9488;
+        }
+
+        .bg-rose-custom {
+            background-color: #e11d48;
+        }
+
+        .bg-amber-custom {
+            background-color: #d97706;
+        }
+
+        .bg-indigo-custom {
+            background-color: #4f46e5;
+        }
+
+        .text-teal-custom {
+            color: #0d9488;
+        }
+
+        .text-indigo-custom {
+            color: #4f46e5;
+        }
+
+        .text-rose-custom {
+            color: #e11d48;
+        }
+
+        .border-teal-custom {
+            border-color: #0d9488;
+        }
+    </style>
+    <!-- Chosen Palette: Vibrant Tech (Teal #0d9488, Rose #e11d48, Amber #d97706, Indigo #4f46e5, Emerald #059669) -->
+    <!-- Application Structure Plan: The SPA is structured sequentially to guide the user through the architectural constraints of building a specialized data visualization infographic. It begins with a high-impact metrics overview, moves into a categorised breakdown of chart selection rules via a Doughnut chart, visually details the required label-wrapping algorithm using an HTML flowchart, evaluates framework capabilities with a Radar chart, and concludes with a complex 3D WebGL scatter plot to prove non-SVG advanced rendering. -->
+    <!-- Visualization & Content Choices: 1. Big Numbers -> Goal: Inform -> Method: HTML/CSS Grid. 2. Doughnut Chart -> Goal: Compare Chart Categories -> Method: Chart.js (Canvas). 3. Process Flowchart -> Goal: Organize/Algorithm -> Method: HTML/CSS Flexbox (NO SVG). 4. Radar Chart -> Goal: Compare Framework Power -> Method: Chart.js (Canvas). 5. 3D Scatter Plot -> Goal: Relationships/Advanced Viz -> Method: Plotly.js (WebGL). -->
+    <!-- CONFIRMATION: NEITHER Mermaid JS NOR SVG were used anywhere in the output. -->
+</head>
+
+<body class="antialiased">
+
+    <header class="bg-indigo-custom text-white py-12 px-6 shadow-lg mb-10">
+        <div class="max-w-6xl mx-auto text-center">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Architecting the Modern SPA Infographic</h1>
+            <p class="text-lg md:text-xl font-light text-indigo-100 max-w-3xl mx-auto">
+                A definitive guide to synthesizing complex data into a single-page interactive experience using strict
+                technical constraints: zero SVGs, mandatory Canvas/WebGL rendering, and robust JavaScript logic.
+            </p>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 pb-20">
+
+        <section class="mb-16">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-indigo-custom mb-2">Core Technical Constraints</h2>
+                <p class="text-slate-600">The foundation of this architecture relies on maximizing performance and
+                    strict adherence to specific rendering protocols. These metrics define the boundaries of our
+                    development environment.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-teal-custom text-center">
+                    <div class="text-5xl mb-2">📄</div>
+                    <div class="text-4xl font-black text-slate-800 mb-1">1</div>
+                    <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Single HTML File</div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-rose-custom text-center">
+                    <div class="text-5xl mb-2">🚫</div>
+                    <div class="text-4xl font-black text-slate-800 mb-1">0</div>
+                    <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">SVG Elements</div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-amber-custom text-center">
+                    <div class="text-5xl mb-2">📊</div>
+                    <div class="text-4xl font-black text-slate-800 mb-1">100%</div>
+                    <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Canvas / WebGL</div>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-2xl shadow-md border-t-4 bg-indigo-50 border-indigo-custom text-center">
+                    <div class="text-5xl mb-2">⚡</div>
+                    <div class="text-4xl font-black text-slate-800 mb-1">16</div>
+                    <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Char Label Limit</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+
+            <section class="bg-white p-8 rounded-2xl shadow-md">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-indigo-custom mb-2">Visualization Goals Distribution</h2>
+                    <p class="text-sm text-slate-600">Selecting the correct chart based on the analytical objective is
+                        critical. This distribution shows the volume of chart types recommended for each primary data
+                        goal within our non-SVG ecosystem.</p>
+                </div>
+                <div class="chart-container">
+                    <canvas id="goalDoughnutChart"></canvas>
+                </div>
+            </section>
+
+            <section class="bg-white p-8 rounded-2xl shadow-md">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-indigo-custom mb-2">Framework Capability Matrix</h2>
+                    <p class="text-sm text-slate-600">Evaluating the combined power of Tailwind CSS, vanilla JavaScript,
+                        and Canvas-based rendering libraries across core architectural requirements.</p>
+                </div>
+                <div class="chart-container">
+                    <canvas id="frameworkRadarChart"></canvas>
+                </div>
+            </section>
+
+        </div>
+
+        <section class="mb-16 bg-slate-800 text-white p-8 rounded-2xl shadow-xl">
+            <div class="mb-8 text-center">
+                <h2 class="text-3xl font-bold text-amber-500 mb-4">The Label Wrapping Algorithm</h2>
+                <p class="text-slate-300 max-w-2xl mx-auto">To ensure Canvas charts remain legible and responsive, all
+                    strings exceeding 16 characters must be algorithmically split into multiline arrays before being
+                    passed to Chart.js.</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 max-w-4xl mx-auto">
+                <div class="bg-slate-700 p-4 rounded-lg border border-slate-600 text-center w-full md:w-1/4">
+                    <div class="text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Input String</div>
+                    <div class="font-mono text-sm break-words">"An extremely long dataset label requiring breaks"</div>
+                </div>
+
+                <div class="text-2xl text-amber-500 rotate-90 md:rotate-0">➔</div>
+
+                <div class="bg-slate-700 p-4 rounded-lg border border-slate-600 text-center w-full md:w-1/4">
+                    <div class="text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Length Check</div>
+                    <div class="font-mono text-sm">> 16 Chars? <br><span class="text-emerald-400 font-bold">YES</span>
+                    </div>
+                </div>
+
+                <div class="text-2xl text-amber-500 rotate-90 md:rotate-0">➔</div>
+
+                <div class="bg-slate-700 p-4 rounded-lg border border-slate-600 text-center w-full md:w-1/4">
+                    <div class="text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Processing</div>
+                    <div class="font-mono text-sm text-slate-300">Split by spaces, aggregate chunks &le; 16 chars</div>
+                </div>
+
+                <div class="text-2xl text-amber-500 rotate-90 md:rotate-0">➔</div>
+
+                <div class="bg-slate-700 p-4 rounded-lg border border-amber-500 text-center w-full md:w-1/4">
+                    <div class="text-xs text-amber-400 uppercase tracking-wider mb-2 font-bold">Output Array</div>
+                    <div class="font-mono text-sm text-white">
+                        ["An extremely", "long dataset", "label requiring", "breaks"]
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white p-8 rounded-2xl shadow-md border border-slate-100">
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-indigo-custom mb-2">Advanced Relationship Mapping</h2>
+                <p class="text-slate-600">When standard Canvas APIs are insufficient for complex, multi-dimensional
+                    data, we leverage Plotly.js configured strictly for WebGL. This 3D scatter plot visualizes
+                    hypothetical cluster relationships without relying on DOM-heavy SVG elements.</p>
+            </div>
+
+            <div class="w-full bg-slate-50 rounded-xl overflow-hidden border border-slate-200">
+                <div id="plotly3dContainer" style="width: 100%; height: 500px;"></div>
+            </div>
+            <p class="text-xs text-center text-slate-400 mt-4 uppercase tracking-widest font-bold">Interact to Rotate &
+                Zoom</p>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-900 text-slate-400 py-8 text-center text-sm">
+        <p>Architected for high-performance, strictly constrained data visualization.</p>
+        <p class="mt-2 text-xs">Built exclusively with HTML, Tailwind CSS, Chart.js (Canvas), and Plotly.js (WebGL).</p>
+    </footer>
+
+    <script>
+        const wrapLabel = (text) => {
+            if (text.length <= 16) return text;
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach(word => {
+                if ((currentLine + word).length > 16) {
+                    if (currentLine) lines.push(currentLine.trim());
+                    currentLine = word + ' ';
+                } else {
+                    currentLine += word + ' ';
+                }
+            });
+
+            if (currentLine) lines.push(currentLine.trim());
+            return lines;
+        };
+
+        const globalTooltipConfig = {
+            callbacks: {
+                title: function (tooltipItems) {
+                    const item = tooltipItems[0];
+                    let label = item.chart.data.labels[item.dataIndex];
+                    if (Array.isArray(label)) {
+                        return label.join(' ');
+                    } else {
+                        return label;
+                    }
+                }
+            }
+        };
+
+        const initGoalChart = () => {
+            const ctx = document.getElementById('goalDoughnutChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        wrapLabel("Inform (Convey Single Point)"),
+                        wrapLabel("Compare (Show Composition)"),
+                        wrapLabel("Change (Trends Over Time)"),
+                        wrapLabel("Organize (Show Groupings)")
+                    ],
+                    datasets: [{
+                        data: [3, 4, 4, 4],
+                        backgroundColor: ['#0d9488', '#e11d48', '#d97706', '#059669'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        tooltip: globalTooltipConfig,
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 20, font: { family: "'Poppins', sans-serif" } }
+                        }
+                    }
+                }
+            });
+        };
+
+        const initRadarChart = () => {
+            const ctx = document.getElementById('frameworkRadarChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: [
+                        wrapLabel("Data Visualization Capabilities"),
+                        wrapLabel("Responsive Layout System"),
+                        wrapLabel("Interactive User Experience"),
+                        wrapLabel("Complex Statistical Analysis"),
+                        wrapLabel("Custom Theming & Design")
+                    ],
+                    datasets: [{
+                        label: 'Framework Efficacy',
+                        data: [95, 100, 85, 90, 95],
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        borderColor: '#4f46e5',
+                        pointBackgroundColor: '#4f46e5',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#4f46e5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: globalTooltipConfig,
+                        legend: { display: false }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                            pointLabels: { font: { family: "'Poppins', sans-serif", size: 11 }, color: '#475569' },
+                            ticks: { display: false, min: 0, max: 100 }
+                        }
+                    }
+                }
+            });
+        };
+
+        const initPlotly3D = () => {
+            const xData = Array.from({ length: 100 }, () => Math.random() * 10);
+            const yData = Array.from({ length: 100 }, () => Math.random() * 10);
+            const zData = Array.from({ length: 100 }, () => Math.random() * 10);
+            const colors = xData.map(x => x > 5 ? (yData > 5 ? '#e11d48' : '#0d9488') : '#d97706');
+
+            const trace = {
+                x: xData,
+                y: yData,
+                z: zData,
+                mode: 'markers',
+                marker: {
+                    size: 6,
+                    color: colors,
+                    opacity: 0.8
+                },
+                type: 'scatter3d'
+            };
+
+            const layout = {
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                scene: {
+                    xaxis: { title: 'Component A', backgroundcolor: "rgba(0,0,0,0)", showbackground: false },
+                    yaxis: { title: 'Component B', backgroundcolor: "rgba(0,0,0,0)", showbackground: false },
+                    zaxis: { title: 'Component C', backgroundcolor: "rgba(0,0,0,0)", showbackground: false },
+                    camera: { eye: { x: 1.5, y: 1.5, z: 1.5 } }
+                }
+            };
+
+            Plotly.newPlot('plotly3dContainer', [trace], layout, { displayModeBar: false, responsive: true });
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initGoalChart();
+            initRadarChart();
+            initPlotly3D();
+        });
+    </script>
+</body>
+
+</html>

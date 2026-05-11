@@ -40,13 +40,12 @@
                 <div class="verse-card">
                     <h2>${v.book} ${v.reference}</h2>
                     <p style="font-size:1.4rem; font-style:italic;">"${v.text || ''}"</p>
-                    
                     ${v.tags && v.tags.length > 0 ? `<div class="verse-tags">${v.tags.map(t => `<span>#${t}</span>`).join('')}</div>` : ''}
-                    ${v.cross_references && v.cross_references.length > 0 ? `<div class="verse-cross-ref">🔗 <b>Referencias:</b> ${v.cross_references.join(' • ')}</div>` : ''}
                 </div>
                 <div id="v-sections">
                     ${v.base_perspectives ? `<h3 class="study-section-title">📚 Estudio Bíblico</h3><div class="perspective-selector" id="b-btns"></div><div id="b-cont" class="perspective-content" style="display:none; border-color:var(--secondary);"></div>` : ''}
                     <h3 class="study-section-title">✍️ Mis Notas Personales</h3><div class="perspective-selector" id="p-btns"></div><div id="p-cont" class="perspective-content" style="display:none;"></div>
+                    ${v.cross_references && v.cross_references.length > 0 ? `<h3 class="study-section-title">🔗 Referencias Cruzadas</h3><div id="cross-ref-list" style="margin-top:8px;"></div>` : ''}
                 </div>
             `;
             setEditor({ type: 'verse', id: v.id }, "Título de mi nota personal...");
@@ -76,6 +75,50 @@
             };
             fill(v.base_perspectives, 'b-btns', 'b-cont', true);
             fill(v.perspectives, 'p-btns', 'p-cont', false);
+
+            // Renderizar referencias cruzadas con contenido real
+            if (v.cross_references && v.cross_references.length > 0) {
+                const crList = document.getElementById('cross-ref-list');
+                if (crList) {
+                    let lastBookCr = null, lastChapCr = null;
+                    v.cross_references.forEach(ref => {
+                        const m = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+                        if (!m) return;
+                        const bName = m[1], chapNum = m[2], verNum = m[3];
+                        const found = currentData.find(x => x.type === 'verse' &&
+                            normalizeBookName(x.book) === normalizeBookName(bName) &&
+                            (x.chapter === chapNum || (x.reference||'').startsWith(chapNum+':')) &&
+                            (x.reference||'').endsWith(':'+verNum));
+                        
+                        // Separador de libro
+                        if (bName !== lastBookCr) {
+                            const bd = document.createElement('div');
+                            bd.style.cssText = 'background:var(--primary);color:white;padding:6px 12px;margin:12px 0 4px;border-radius:6px;font-weight:bold;font-size:0.95rem;';
+                            bd.textContent = `📖 ${bName}`;
+                            crList.appendChild(bd);
+                            lastBookCr = bName; lastChapCr = null;
+                        }
+                        // Separador de capítulo
+                        if (chapNum !== lastChapCr) {
+                            const cd = document.createElement('div');
+                            cd.style.cssText = 'color:var(--secondary);font-weight:bold;font-size:0.85rem;padding:2px 2px;border-bottom:1px solid var(--secondary);margin-bottom:3px;';
+                            cd.textContent = `Capítulo ${chapNum}`;
+                            crList.appendChild(cd);
+                            lastChapCr = chapNum;
+                        }
+
+                        const row = document.createElement('div');
+                        row.style.cssText = 'padding:5px 8px;margin:2px 0;border-radius:5px;cursor:pointer;background:#f8f9fa;border-left:3px solid var(--secondary);font-size:0.92rem;';
+                        row.innerHTML = found
+                            ? `<b style="color:var(--secondary)">${ref}</b> — ${found.text}`
+                            : `<b style="color:var(--secondary)">${ref}</b> <i style="opacity:0.5">(no cargado)</i>`;
+                        row.onmouseenter = () => row.style.background = '#e8f4f8';
+                        row.onmouseleave = () => row.style.background = '#f8f9fa';
+                        if (found) row.onclick = () => window.viewSingleVerse(found.id);
+                        crList.appendChild(row);
+                    });
+                }
+            }
         };
 
         window.viewReading = (title, items, target, fromHistory = false) => {
@@ -89,26 +132,28 @@
                 return (idxA - idxB) || (parseInt(a.chapter) - parseInt(b.chapter)) || (parseInt((a.reference||'').split(':')[1]) - parseInt((b.reference||'').split(':')[1]));
             });
 
-            // 1. Filtrar notas repetidas del capítulo para que no salgan en el tooltip
-            let commonNotes = {};
+            // 1. Detectar notas repetidas POR CAPÍTULO
+            // Si una nota aparece en 2+ versículos del mismo capítulo = nota de libro/cap, filtrarla del tooltip
+            const chapNoteSets = {}; // { "book_cap": Set(valores repetidos) }
+            const chapGroups = {};
             verses.forEach(v => {
-                if(v.base_perspectives) {
-                    Object.values(v.base_perspectives).forEach(val => {
-                        commonNotes[val] = (commonNotes[val] || 0) + 1;
-                    });
-                }
+                const cKey = `${normalizeBookName(v.book)}_${v.chapter || (v.reference||'').split(':')[0]}`;
+                if (!chapGroups[cKey]) chapGroups[cKey] = [];
+                chapGroups[cKey].push(v);
             });
-            let chapterNotesSet = new Set();
-            let totalVerses = verses.length;
-            Object.entries(commonNotes).forEach(([val, count]) => {
-                if (count > 1 && count >= totalVerses * 0.3) chapterNotesSet.add(val);
+            Object.entries(chapGroups).forEach(([cKey, cvs]) => {
+                const cnt = {};
+                cvs.forEach(v => {
+                    if (v.base_perspectives) Object.values(v.base_perspectives).forEach(val => { cnt[val] = (cnt[val]||0)+1; });
+                });
+                const rep = new Set();
+                Object.entries(cnt).forEach(([val, c]) => { if (c > 1) rep.add(val); });
+                chapNoteSets[cKey] = rep;
             });
 
             mainView.innerHTML = `
                 <div class="sticky-tracker" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div id="tracker-ref" class="tracker-info">
-                        ${title}
-                    </div>
+                    <div id="tracker-ref" class="tracker-info">${title}</div>
                     <div class="tracker-nav" id="tracker-nav">
                         ${target.type === 'chapter' ? '<button id="tr-prev" style="display:none;">⬅️</button><button id="tr-next" style="display:none;">➡️</button>' : ''}
                         <button id="btn-range-toggle" title="Filtrar por Rango" style="margin-left:10px; background:var(--secondary); border:none; border-radius:50%; width:28px; height:28px; color:white; font-weight:bold; cursor:pointer; font-size:1.1rem; line-height:1;">+</button>
@@ -128,7 +173,7 @@
                     <div id="read-text"></div>
                 </div>`;
 
-            // Event Listeners para rango
+            // Event listeners para rango de versículos
             const btnRangeToggle = document.getElementById('btn-range-toggle');
             const rangeSelector = document.getElementById('range-selector');
             if(btnRangeToggle) {
@@ -140,39 +185,30 @@
                     }
                 };
             }
-
-            const applyRangeFilter = () => {
+            const btnApplyRange = document.getElementById('btn-apply-range');
+            if (btnApplyRange) btnApplyRange.onclick = () => {
                 let s = parseInt(document.getElementById('range-start').value);
                 let e = parseInt(document.getElementById('range-end').value);
                 if (isNaN(s) || isNaN(e)) return;
-                if (s > e) { let temp = s; s = e; e = temp; }
-                
-                let spans = document.querySelectorAll('.verse-text-span');
-                spans.forEach(span => {
-                    let ref = span.dataset.ref;
-                    if (ref) {
-                        let match = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
-                        if (match) {
-                            let vNum = parseInt(match[3]);
-                            if (vNum >= s && vNum <= e) span.style.display = 'inline';
-                            else span.style.display = 'none';
-                        }
+                if (s > e) [s, e] = [e, s];
+                document.querySelectorAll('.verse-text-span').forEach(span => {
+                    // data-ref = "Libro Cap:Ver" — extraer el número de versículo después de ':'
+                    const ref = span.dataset.ref || '';
+                    const colon = ref.lastIndexOf(':');
+                    if (colon !== -1) {
+                        const vn = parseInt(ref.substring(colon + 1));
+                        span.style.display = (!isNaN(vn) && vn >= s && vn <= e) ? 'inline' : 'none';
                     }
                 });
             };
-
-            const clearRangeFilter = () => {
+            const btnClearRange = document.getElementById('btn-clear-range');
+            if (btnClearRange) btnClearRange.onclick = () => {
                 document.getElementById('range-start').value = '';
                 document.getElementById('range-end').value = '';
-                let spans = document.querySelectorAll('.verse-text-span');
-                spans.forEach(span => span.style.display = 'inline');
+                document.querySelectorAll('.verse-text-span').forEach(span => span.style.display = 'inline');
             };
 
-            const btnApplyRange = document.getElementById('btn-apply-range');
-            if (btnApplyRange) btnApplyRange.onclick = applyRangeFilter;
-            const btnClearRange = document.getElementById('btn-clear-range');
-            if (btnClearRange) btnClearRange.onclick = clearRangeFilter;
-
+            // Notas del nivel actual (testamento/categoría/libro/capítulo)
             const notesTop = document.getElementById('notes-top');
             const notes = currentData.filter(x => {
                 if (x.type !== target.type + '_note') return false;
@@ -183,119 +219,136 @@
                 return false;
             });
             notes.forEach(n => {
-                if (n.base_perspectives) Object.entries(n.base_perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card"><h4>📚 Estudio: ${k}</h4><p>${v}</p></div>`);
-                if (n.perspectives) Object.entries(n.perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ Mi Nota: ${k}</h4><p>${v}</p></div>`);
+                if (n.base_perspectives) Object.entries(n.base_perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card"><h4>📚 ${k}</h4><p>${v}</p></div>`);
+                if (n.perspectives) Object.entries(n.perspectives).forEach(([k, v]) => notesTop.innerHTML += `<div class="level-note-card personal"><h4>✍️ ${k}</h4><p>${v}</p></div>`);
             });
 
+            // Tracker de posición
             window.currentTrackerRef = null;
             window.globalUpdateTracker = (refStr, version) => {
                 if (!refStr) return;
                 const match = refStr.match(/^(.*?)\s+(\d+):(\d+)(?:\s*-\s*\d+)?$/);
                 if (!match) return;
                 window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
-                
                 const t = document.getElementById('tracker-ref');
                 if (!t) return;
                 t.innerHTML = `
-                    <div class="tracker-controls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.9rem;">
-                        <button class="nav-arrow left" onclick="window.navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-right:5px;">◀</button>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
-                            <button class="nav-arrow up" onclick="window.navTracker('book', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
-                            <span style="font-weight:bold; white-space:nowrap;">${match[1]}</span>
-                            <button class="nav-arrow down" onclick="window.navTracker('book', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.85rem;">
+                        <button onclick="window.navTracker('verse',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:1.1rem;">◀</button>
+                        <div style="display:flex;flex-direction:column;align-items:center;">
+                            <button onclick="window.navTracker('book',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
+                            <b style="white-space:nowrap;">${match[1]}</b>
+                            <button onclick="window.navTracker('book',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
                         </div>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center; margin-right:10px;">
-                            <button class="nav-arrow up" onclick="window.navTracker('chapter', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
-                            <span style="font-weight:bold; white-space:nowrap;">Cap. ${match[2]}</span>
-                            <button class="nav-arrow down" onclick="window.navTracker('chapter', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                        <div style="display:flex;flex-direction:column;align-items:center;">
+                            <button onclick="window.navTracker('chapter',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
+                            <b style="white-space:nowrap;">Cap.${match[2]}</b>
+                            <button onclick="window.navTracker('chapter',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
                         </div>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center;">
-                            <button class="nav-arrow up" onclick="window.navTracker('verse', -1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▲</button>
-                            <span style="font-weight:bold; white-space:nowrap;">Ver. ${match[3]}</span>
-                            <button class="nav-arrow down" onclick="window.navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; line-height:0.5; font-size:0.8rem;">▼</button>
+                        <div style="display:flex;flex-direction:column;align-items:center;">
+                            <button onclick="window.navTracker('verse',-1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▲</button>
+                            <b style="white-space:nowrap;">v.${match[3]}</b>
+                            <button onclick="window.navTracker('verse',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:0.75rem;line-height:1;">▼</button>
                         </div>
-                        
-                        <button class="nav-arrow right" onclick="window.navTracker('verse', 1)" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem; margin-left:5px;">▶</button>
-                    </div>
-                `;
+                        <button onclick="window.navTracker('verse',1)" style="background:transparent;border:none;color:white;cursor:pointer;font-size:1.1rem;">▶</button>
+                    </div>`;
             };
 
+            // Observer de lectura activa
             const readText = document.getElementById('read-text');
             if (readingObserver) readingObserver.disconnect();
-            
             window.manualHighlightMode = false;
             let currentlyVisibleVerses = new Set();
-
             readingObserver = new IntersectionObserver(es => {
                 if (window.manualHighlightMode) return;
                 es.forEach(e => {
-                    if (e.isIntersecting) {
-                        currentlyVisibleVerses.add(e.target);
-                    } else {
-                        currentlyVisibleVerses.delete(e.target);
-                        e.target.classList.remove('active-reading');
-                    }
+                    if (e.isIntersecting) currentlyVisibleVerses.add(e.target);
+                    else { currentlyVisibleVerses.delete(e.target); e.target.classList.remove('active-reading'); }
                 });
-                
-                let activeVerse = null;
-                let minDiff = Infinity;
-                let centerY = window.innerHeight / 2;
-                
+                let activeVerse = null, minDiff = Infinity, centerY = window.innerHeight / 2;
                 currentlyVisibleVerses.forEach(el => {
                     let rect = el.getBoundingClientRect();
-                    let elCenter = rect.top + rect.height / 2;
-                    let diff = Math.abs(elCenter - centerY);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        activeVerse = el;
-                    }
+                    let diff = Math.abs(rect.top + rect.height/2 - centerY);
+                    if (diff < minDiff) { minDiff = diff; activeVerse = el; }
                 });
-                
-                document.querySelectorAll('.active-reading').forEach(el => {
-                    if (el !== activeVerse) el.classList.remove('active-reading');
-                });
-                
+                document.querySelectorAll('.active-reading').forEach(el => { if (el !== activeVerse) el.classList.remove('active-reading'); });
                 if (activeVerse) {
                     activeVerse.classList.add('active-reading');
                     if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
                 }
             }, { rootMargin: '-20% 0px -20% 0px' });
 
+            // Renderizar versículos con separadores libro/capítulo en vistas multi-capítulo
+            const isMultiCap = (target.type !== 'chapter');
+            let lastBook = null, lastChap = null;
             verses.forEach(v => {
-                let hasB = v.base_perspectives && Object.keys(v.base_perspectives).length > 0;
-                let hasP = v.perspectives && Object.keys(v.perspectives).length > 0;
-                
+                const vChap = v.chapter || (v.reference||'').split(':')[0];
+                // Separador libro
+                if (isMultiCap && v.book !== lastBook) {
+                    const bd = document.createElement('div');
+                    bd.style.cssText = 'background:var(--primary);color:white;padding:10px 14px;margin:20px 0 6px;border-radius:8px;font-weight:bold;font-size:1.05rem;box-shadow:0 2px 6px rgba(0,0,0,0.2);';
+                    bd.textContent = `📖 ${v.book}`;
+                    readText.appendChild(bd);
+                    lastBook = v.book; lastChap = null;
+                }
+                // Separador capítulo
+                if (isMultiCap && vChap !== lastChap) {
+                    const cd = document.createElement('div');
+                    cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px;';
+                    cd.textContent = `Capítulo ${vChap}`;
+                    readText.appendChild(cd);
+                    lastChap = vChap;
+                }
+
+                // Calcular notas únicas del versículo (no repetidas en el capítulo)
+                const capKey = `${normalizeBookName(v.book)}_${vChap}`;
+                const repeatSet = chapNoteSets[capKey] || new Set();
                 let bFiltered = [];
-                if (hasB) {
+                if (v.base_perspectives) {
                     Object.entries(v.base_perspectives).forEach(([k, val]) => {
-                        if (!chapterNotesSet.has(val)) {
-                            bFiltered.push(`<b>${k.toUpperCase()}:</b><br>${val}`);
-                        }
+                        if (!repeatSet.has(val)) bFiltered.push(`<b>${k.replace(/_/g,' ').toUpperCase()}:</b><br>${val}`);
                     });
                 }
+                let pFiltered = v.perspectives ? Object.entries(v.perspectives).map(([k,val]) => `<b>${k.replace(/_/g,' ').toUpperCase()}:</b><br>${val}`) : [];
                 
-                let pFiltered = [];
-                if (hasP) {
-                    Object.entries(v.perspectives).forEach(([k, val]) => {
-                         pFiltered.push(`<b>${k.toUpperCase()}:</b><br>${val}`);
+                // Construir tooltip: tags + notas únicas + referencias cruzadas con contenido
+                let ttParts = [];
+                if (v.tags?.length) ttParts.push(`<span style="font-size:0.8em;opacity:0.75;">${v.tags.map(t=>'#'+t).join(' ')}</span>`);
+                if (bFiltered.length) ttParts.push(...bFiltered);
+                if (pFiltered.length) ttParts.push(...pFiltered);
+
+                // Referencias cruzadas con texto del versículo referenciado
+                if (v.cross_references?.length) {
+                    let crHtml = '<b>🔗 REFERENCIAS:</b>';
+                    let lastCrBook = null, lastCrChap = null;
+                    v.cross_references.slice(0, 6).forEach(ref => {
+                        const m = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+                        if (!m) return;
+                        const found = currentData.find(x => x.type === 'verse' &&
+                            normalizeBookName(x.book) === normalizeBookName(m[1]) &&
+                            (x.reference||'').endsWith(':'+m[3]) &&
+                            (x.chapter === m[2] || (x.reference||'').startsWith(m[2]+':')));
+                        if (m[1] !== lastCrBook) { crHtml += `<br><b style="color:#aef;">${m[1]}</b>`; lastCrBook = m[1]; lastCrChap = null; }
+                        if (m[2] !== lastCrChap) { crHtml += ` <i>Cap.${m[2]}</i>`; lastCrChap = m[2]; }
+                        crHtml += `<br><span style="font-size:0.85em;"><b>${m[3]}.</b> ${found ? found.text : ref}</span>`;
                     });
+                    ttParts.push(crHtml);
                 }
 
-                let dot = (bFiltered.length > 0 ? `<span class="has-persp-dot base"></span>` : '') + (pFiltered.length > 0 ? `<span class="has-persp-dot"></span>` : '');
-
-                let tt = '';
-                if (bFiltered.length > 0) tt += `<b>ESTUDIO:</b><br>${bFiltered.join('<br><br>')}<br><br>`;
-                if (pFiltered.length > 0) tt += `<b>MI NOTA:</b><br>${pFiltered.join('<br><br>')}`;
-
+                const tt = ttParts.join('<hr style="margin:4px 0;opacity:0.3;">');
+                const hasDot = bFiltered.length > 0 || pFiltered.length > 0;
+                const hasRef = v.cross_references?.length > 0;
+                const dot = (hasDot ? `<span class="has-persp-dot base"></span>` : '') + (hasRef ? `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;"></span>` : '');
+                
                 let span = document.createElement('span');
-                span.className = (bFiltered.length > 0 || pFiltered.length > 0) ? 'verse-text-span tooltip' : 'verse-text-span';
-                span.dataset.ref = `${v.book || ''} ${v.reference || ''}`;
+                span.className = tt ? 'verse-text-span tooltip' : 'verse-text-span';
+                span.dataset.ref = `${v.book} ${v.reference}`;
                 span.dataset.version = v.version || '';
-                let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
-                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot} ${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
+                // Extraer número de versículo de forma segura
+                const refStr = v.reference || '';
+                const colonIdx = refStr.lastIndexOf(':');
+                const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
+                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot}${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
                 span.onclick = () => viewSingleVerse(v.id);
                 readText.appendChild(span);
                 readingObserver.observe(span);

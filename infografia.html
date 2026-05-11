@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitectura de Estudio Bíblico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fafaf9;
+            /* Tailwind stone-50 */
+            color: #1e293b;
+            /* Tailwind slate-800 */
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-serif {
+            font-family: 'Lora', serif;
+        }
+
+        /* Required Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+                max-width: 700px;
+            }
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .nav-btn {
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn.active {
+            border-bottom-color: #78350f;
+            /* amber-900 */
+            color: #78350f;
+            font-weight: 600;
+        }
+
+        /* Custom Scrollbar for inner components */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f5f5f4;
+            border-radius: 4px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 4px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+    </style>
+
+    <!-- Chosen Palette: Warm Neutrals (Stone background, Slate text, Amber/Brown accents) -->
+    <!-- Application Structure Plan: A single-page dashboard divided into four functional tabs mapping directly to the user's query: 1. Organization (Taxonomy), 2. Study Methods (Process), 3. Sermon Prep (Workflow), 4. App Architecture (UI/UX). This tabbed structure prevents cognitive overload and allows focused exploration of complex distinct topics within a single logical space. -->
+    <!-- Visualization & Content Choices: 
+         - Bible Organization: Doughnut Chart (Chart.js) to show the proportion of genres, interactive to display details. Avoids SVG trees.
+         - Study Methods: Interactive split-pane list. Goal: organize textual steps clearly. Method: HTML/JS state update.
+         - Sermon Prep: Vertical timeline built with HTML/Tailwind borders. Goal: show a linear process. Method: Structured HTML (No SVG).
+         - App Design: CSS Grid wireframe. Goal: visually communicate layout structure. Method: HTML/CSS Grid and unicode icons. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white border-b border-stone-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center py-4">
+                <div class="flex items-center mb-4 md:mb-0">
+                    <span class="text-3xl mr-3 text-amber-900">📖</span>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 leading-tight">Arquitectura Bíblica</h1>
+                        <p class="text-xs text-slate-500 uppercase tracking-widest">Plataforma de Análisis y Diseño</p>
+                    </div>
+                </div>
+                <nav class="flex space-x-1 sm:space-x-4 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 hide-scroll">
+                    <button onclick="switchTab('org')" id="btn-org"
+                        class="nav-btn active px-3 py-2 text-sm md:text-base text-slate-600 hover:text-amber-900 whitespace-nowrap">Organización</button>
+                    <button onclick="switchTab('methods')" id="btn-methods"
+                        class="nav-btn px-3 py-2 text-sm md:text-base text-slate-600 hover:text-amber-900 whitespace-nowrap">Métodos
+                        de Estudio</button>
+                    <button onclick="switchTab('prep')" id="btn-prep"
+                        class="nav-btn px-3 py-2 text-sm md:text-base text-slate-600 hover:text-amber-900 whitespace-nowrap">Prep.
+                        de Sesión</button>
+                    <button onclick="switchTab('app')" id="btn-app"
+                        class="nav-btn px-3 py-2 text-sm md:text-base text-slate-600 hover:text-amber-900 whitespace-nowrap">Diseño
+                        de App UX</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- SECTION 1: Organización -->
+        <section id="tab-org" class="tab-content active">
+            <div class="mb-8 max-w-3xl">
+                <h2 class="text-3xl font-bold text-amber-900 mb-4">Taxonomía de la Biblioteca Divina</h2>
+                <p class="text-lg text-slate-700 font-serif leading-relaxed">
+                    La Biblia no es un solo libro, sino una biblioteca de 66 libros divididos en dos grandes pactos
+                    (Testamentos). Para estudiarla correctamente, es crucial entender que está organizada por
+                    <strong>género literario</strong>, no en orden estrictamente cronológico. Interactúe con el gráfico
+                    para explorar las categorías.
+                </p>
+            </div>
+
+            <div
+                class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+                <div class="w-full">
+                    <!-- Chart Container -->
+                    <div class="chart-container">
+                        <canvas id="genreChart"></canvas>
+                    </div>
+                    <p class="text-center text-xs text-slate-400 mt-2">Haga clic en una sección para ver detalles</p>
+                </div>
+
+                <div
+                    class="bg-stone-50 rounded-lg p-6 border border-stone-200 h-full flex flex-col justify-center min-h-[300px]">
+                    <h3 id="genre-title" class="text-2xl font-bold text-slate-800 mb-2 font-serif">Seleccione un Género
+                    </h3>
+                    <div id="genre-stats" class="flex space-x-4 mb-4 text-sm font-semibold text-amber-800">
+                        <!-- Stats injected via JS -->
+                    </div>
+                    <p id="genre-desc" class="text-slate-600 leading-relaxed">
+                        El gráfico muestra la distribución de los 66 libros de la Biblia según su clasificación
+                        literaria estándar. Haga clic en el anillo para descubrir la estructura, el propósito y los
+                        libros que componen cada sección.
+                    </p>
+                    <div id="genre-books"
+                        class="mt-4 text-sm text-slate-500 font-mono bg-white p-3 rounded border border-stone-100 hidden">
+                        <!-- Books injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Métodos de Estudio -->
+        <section id="tab-methods" class="tab-content">
+            <div class="mb-8 max-w-3xl">
+                <h2 class="text-3xl font-bold text-amber-900 mb-4">Metodologías de Exégesis</h2>
+                <p class="text-lg text-slate-700 font-serif leading-relaxed">
+                    Existen diversas formas de abordar el texto bíblico dependiendo del objetivo del estudiante.
+                    Seleccione un método de la lista para explorar su proceso sistemático.
+                </p>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 bg-white p-2 rounded-xl shadow-sm border border-stone-100">
+                <!-- List -->
+                <div class="w-full md:w-1/3 flex flex-col gap-2 p-4">
+                    <button onclick="loadMethod('inductivo')"
+                        class="method-btn text-left p-4 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-amber-900 transition-colors bg-stone-100 border-amber-900 shadow-sm"
+                        id="btn-m-inductivo">
+                        <h4 class="font-bold text-slate-800">Estudio Inductivo</h4>
+                        <p class="text-xs text-slate-500 mt-1">El estándar de oro. Del texto a la conclusión.</p>
+                    </button>
+                    <button onclick="loadMethod('tematico')"
+                        class="method-btn text-left p-4 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-amber-900 transition-colors"
+                        id="btn-m-tematico">
+                        <h4 class="font-bold text-slate-800">Estudio Temático</h4>
+                        <p class="text-xs text-slate-500 mt-1">Rastrear un concepto (ej. "Gracia") en toda la Biblia.
+                        </p>
+                    </button>
+                    <button onclick="loadMethod('biografico')"
+                        class="method-btn text-left p-4 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-amber-900 transition-colors"
+                        id="btn-m-biografico">
+                        <h4 class="font-bold text-slate-800">Estudio Biográfico</h4>
+                        <p class="text-xs text-slate-500 mt-1">Análisis de la vida y carácter de un personaje.</p>
+                    </button>
+                    <button onclick="loadMethod('libro')"
+                        class="method-btn text-left p-4 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-amber-900 transition-colors"
+                        id="btn-m-libro">
+                        <h4 class="font-bold text-slate-800">Síntesis de Libro</h4>
+                        <p class="text-xs text-slate-500 mt-1">Comprender el panorama general de una carta o libro
+                            histórico.</p>
+                    </button>
+                </div>
+
+                <!-- Detail Panel -->
+                <div class="w-full md:w-2/3 p-6 bg-stone-50 rounded-lg border border-stone-200">
+                    <h3 id="method-title" class="text-2xl font-bold text-amber-900 mb-2 font-serif">Estudio Inductivo
+                    </h3>
+                    <p id="method-desc" class="text-slate-600 mb-6 italic">El método inductivo busca descubrir lo que el
+                        texto dice objetivamente antes de sacar conclusiones, basándose en tres pilares fundamentales.
+                    </p>
+
+                    <div id="method-steps" class="space-y-4">
+                        <!-- Default Content for Inductive -->
+                        <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-600">
+                            <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">1. Observación</h5>
+                            <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Qué dice el pasaje?
+                                <br>Identificar quién, qué, dónde, cuándo, por qué y cómo. Buscar palabras repetidas,
+                                contrastes, listas y verbos principales.</p>
+                        </div>
+                        <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-700">
+                            <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">2. Interpretación</h5>
+                            <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Qué significaba para los
+                                destinatarios originales? <br>Analizar el contexto histórico y cultural. Usar
+                                diccionarios bíblicos para palabras clave. Considerar el contexto de los capítulos
+                                adyacentes.</p>
+                        </div>
+                        <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-900">
+                            <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">3. Aplicación</h5>
+                            <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Cómo se aplica a mi vida
+                                hoy? <br>Traducir el principio universal descubierto en acciones prácticas. ¿Hay un
+                                pecado que confesar, una promesa que reclamar, un ejemplo a seguir?</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: Preparación -->
+        <section id="tab-prep" class="tab-content">
+            <div class="mb-8 max-w-3xl">
+                <h2 class="text-3xl font-bold text-amber-900 mb-4">Homilética: Preparación de una Sesión/Prédica</h2>
+                <p class="text-lg text-slate-700 font-serif leading-relaxed">
+                    Estructurar una enseñanza requiere pasar del estudio personal a la exposición pública. Este flujo de
+                    trabajo estructurado garantiza mensajes fieles al texto y relevantes para la audiencia.
+                </p>
+            </div>
+
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-stone-100 relative">
+                <!-- Timeline Line -->
+                <div
+                    class="absolute left-[39px] md:left-[50%] top-12 bottom-12 w-0.5 bg-stone-200 -ml-px hidden md:block">
+                </div>
+
+                <div class="space-y-12 relative">
+                    <!-- Step 1 -->
+                    <div
+                        class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+                        <div
+                            class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-amber-900 text-white font-bold shadow-md z-10 md:mx-auto md:absolute md:left-1/2 md:-translate-x-1/2">
+                            1</div>
+                        <div
+                            class="w-[calc(100%-3rem)] md:w-[45%] pl-4 md:pl-0 md:group-even:text-right md:group-even:pr-8 md:group-odd:pl-8">
+                            <div
+                                class="p-5 bg-stone-50 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
+                                <h3 class="font-bold text-lg text-slate-800 font-serif">Selección y Oración</h3>
+                                <p class="text-sm text-slate-600 mt-2">Dependencia espiritual. Determinar si la
+                                    enseñanza será expositiva (un libro entero semana a semana) o temática (responder a
+                                    una necesidad de la congregación). <strong>Establecer los límites del texto</strong>
+                                    (ej. Romanos 8:1-11).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div
+                        class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+                        <div
+                            class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-700 text-white font-bold shadow-md z-10 md:mx-auto md:absolute md:left-1/2 md:-translate-x-1/2">
+                            2</div>
+                        <div
+                            class="w-[calc(100%-3rem)] md:w-[45%] pl-4 md:pl-0 md:group-even:text-right md:group-even:pr-8 md:group-odd:pl-8">
+                            <div
+                                class="p-5 bg-stone-50 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
+                                <h3 class="font-bold text-lg text-slate-800 font-serif">Exégesis Profunda</h3>
+                                <p class="text-sm text-slate-600 mt-2">Sumergirse en el texto seleccionado. Aplicar el
+                                    Método Inductivo. Leer en múltiples traducciones, consultar comentarios bíblicos,
+                                    diccionarios de griego/hebreo para palabras clave. Encontrar la <strong>Gran
+                                        Idea</strong> del autor original.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div
+                        class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+                        <div
+                            class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-amber-700 text-white font-bold shadow-md z-10 md:mx-auto md:absolute md:left-1/2 md:-translate-x-1/2">
+                            3</div>
+                        <div
+                            class="w-[calc(100%-3rem)] md:w-[45%] pl-4 md:pl-0 md:group-even:text-right md:group-even:pr-8 md:group-odd:pl-8">
+                            <div
+                                class="p-5 bg-stone-50 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
+                                <h3 class="font-bold text-lg text-slate-800 font-serif">Estructuración (El Bosquejo)
+                                </h3>
+                                <p class="text-sm text-slate-600 mt-2">Traducir la estructura del texto en un bosquejo
+                                    enseñable. <br />• <strong>Introducción:</strong> Captar atención, presentar el
+                                    problema.<br />• <strong>Cuerpo:</strong> Puntos principales (idealmente 2-4)
+                                    basados directamente en los versículos.<br />• <strong>Transiciones:</strong>
+                                    Conectar lógicamente los puntos.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div
+                        class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+                        <div
+                            class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-800 text-white font-bold shadow-md z-10 md:mx-auto md:absolute md:left-1/2 md:-translate-x-1/2">
+                            4</div>
+                        <div
+                            class="w-[calc(100%-3rem)] md:w-[45%] pl-4 md:pl-0 md:group-even:text-right md:group-even:pr-8 md:group-odd:pl-8">
+                            <div
+                                class="p-5 bg-stone-50 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
+                                <h3 class="font-bold text-lg text-slate-800 font-serif">Ilustración y Aplicación</h3>
+                                <p class="text-sm text-slate-600 mt-2">Las ilustraciones abren ventanas a la verdad.
+                                    Buscar historias, analogías o metáforas visuales. Redactar la
+                                    <strong>Conclusión</strong>, la cual no es un resumen, sino un llamado a la acción
+                                    específico basado en la enseñanza.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: App Design -->
+        <section id="tab-app" class="tab-content">
+            <div class="mb-6 max-w-3xl">
+                <h2 class="text-3xl font-bold text-amber-900 mb-4">Arquitectura de la App Ideal</h2>
+                <p class="text-lg text-slate-700 font-serif leading-relaxed">
+                    Para que una aplicación de estudio bíblico sea "verdadera" e investigativa (no solo de lectura
+                    rápida), la interfaz de usuario debe permitir lectura paralela, conexión de referencias y acceso a
+                    herramientas exegéticas sin perder el contexto del pasaje principal.
+                </p>
+            </div>
+
+            <!-- App Wireframe Mockup using HTML/CSS Grid -->
+            <div class="bg-[#1e1e1e] rounded-xl overflow-hidden shadow-2xl border border-stone-800 w-full font-sans text-stone-300 mx-auto"
+                style="height: 70vh; max-height: 800px; min-height: 500px; display: grid; grid-template-rows: 50px 1fr; grid-template-columns: 250px 1fr 300px;">
+
+                <!-- App Topbar -->
+                <div class="col-span-3 bg-[#252526] border-b border-[#333] flex items-center justify-between px-4">
+                    <div class="flex items-center space-x-4">
+                        <span class="font-bold text-white tracking-wide">LOGOS V2</span>
+                        <div
+                            class="bg-[#3c3c3c] rounded px-3 py-1 text-sm flex items-center cursor-pointer hover:bg-[#4a4a4a]">
+                            <span>🔍 Romanos 8</span>
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 text-lg">
+                        <span class="cursor-pointer hover:text-white" title="Calendario/Planes">📅</span>
+                        <span class="cursor-pointer hover:text-white" title="Marcadores">🔖</span>
+                        <span class="cursor-pointer hover:text-white" title="Configuración">⚙️</span>
+                    </div>
+                </div>
+
+                <!-- Left Sidebar: Navigation & Plans -->
+                <div class="bg-[#252526] border-r border-[#333] flex flex-col">
+                    <div class="p-3 border-b border-[#333] text-xs font-bold text-stone-400 uppercase">Biblioteca &
+                        Planes</div>
+                    <div class="overflow-y-auto custom-scroll p-2 flex-grow text-sm">
+                        <div class="py-2 px-3 bg-[#37373d] text-white rounded cursor-pointer mb-1">📖 Biblia (NVI)</div>
+                        <div class="py-2 px-3 hover:bg-[#2a2d2e] rounded cursor-pointer mb-1 text-stone-400 pl-6">↳
+                            Nuevo Testamento</div>
+                        <div class="py-2 px-3 hover:bg-[#2a2d2e] rounded cursor-pointer mb-1 text-stone-400 pl-8">↳
+                            Romanos</div>
+                        <div
+                            class="py-2 px-3 hover:bg-[#2a2d2e] rounded cursor-pointer mb-1 text-amber-500 pl-10 bg-[#332d26] border-l-2 border-amber-500">
+                            Capítulo 8</div>
+                        <div
+                            class="py-2 px-3 hover:bg-[#2a2d2e] rounded cursor-pointer mt-4 border-t border-[#333] pt-4">
+                            📚 Comentario Matthew Henry</div>
+                        <div
+                            class="py-2 px-3 hover:bg-[#2a2d2e] rounded cursor-pointer mt-1 border-t border-[#333] pt-4 flex justify-between">
+                            <span>📅 Plan de 1 Año</span>
+                            <span class="text-xs bg-stone-700 px-1 rounded">Día 42</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content: Reading View -->
+                <div class="bg-[#1e1e1e] flex flex-col relative">
+                    <div class="flex border-b border-[#333] bg-[#2d2d30]">
+                        <div
+                            class="px-4 py-2 border-r border-[#333] border-t-2 border-t-amber-500 bg-[#1e1e1e] text-white text-sm">
+                            Romanos 8 (NVI)</div>
+                        <div
+                            class="px-4 py-2 border-r border-[#333] text-stone-400 text-sm hover:bg-[#2d2d30] cursor-pointer">
+                            Romanos 8 (Griego)</div>
+                        <div class="px-2 py-2 text-stone-400 text-sm hover:text-white cursor-pointer ml-auto">+</div>
+                    </div>
+                    <div class="overflow-y-auto custom-scroll p-8 text-lg leading-relaxed flex-grow font-serif">
+                        <h1 class="text-3xl text-white mb-6 font-sans">La vida en el Espíritu</h1>
+                        <p class="mb-4 group">
+                            <sup class="text-xs text-stone-500 mr-1 select-none">1</sup>Por lo tanto, ya no hay ninguna
+                            condenación para los que están unidos a Cristo Jesús,
+                        </p>
+                        <p
+                            class="mb-4 group bg-[#2a2d2e] -mx-2 px-2 rounded cursor-pointer border-l-4 border-amber-500">
+                            <sup class="text-xs text-amber-500 mr-1 select-none">2</sup>pues por medio de él la ley del
+                            Espíritu de vida me ha liberado de la ley del pecado y de la muerte.
+                        </p>
+                        <p class="mb-4 group">
+                            <sup class="text-xs text-stone-500 mr-1 select-none">3</sup>En efecto, la ley no pudo
+                            liberarnos porque la naturaleza pecaminosa anuló su poder; por eso Dios envió a su propio
+                            Hijo en condición semejante a nuestra condición de pecadores, para que se ofreciera en
+                            sacrificio por el pecado. Así condenó Dios al pecado en la naturaleza humana...
+                        </p>
+                    </div>
+                    <!-- Tooltip mockup -->
+                    <div
+                        class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-amber-900 text-white px-4 py-2 rounded-full text-sm shadow-lg flex space-x-4 opacity-80 hover:opacity-100 cursor-pointer">
+                        <span>🖊️ Resaltar</span>
+                        <span>📝 Nota</span>
+                        <span>🔗 Copiar Link</span>
+                    </div>
+                </div>
+
+                <!-- Right Sidebar: Research & Cross-refs -->
+                <div class="bg-[#252526] border-l border-[#333] flex flex-col">
+                    <div class="flex border-b border-[#333] bg-[#2d2d30]">
+                        <div
+                            class="px-3 py-2 border-r border-[#333] text-xs uppercase bg-[#1e1e1e] text-amber-500 font-bold w-1/2 text-center">
+                            Referencias</div>
+                        <div
+                            class="px-3 py-2 text-xs uppercase text-stone-400 hover:text-white w-1/2 text-center cursor-pointer">
+                            Análisis</div>
+                    </div>
+                    <div class="overflow-y-auto custom-scroll p-4 text-sm">
+                        <div class="mb-4">
+                            <div class="text-xs text-stone-500 mb-1">Conectado a Romanos 8:2</div>
+                            <div
+                                class="bg-[#1e1e1e] p-3 rounded border border-[#333] hover:border-amber-700 cursor-pointer mb-2">
+                                <span class="font-bold text-amber-500">Juan 8:36</span>
+                                <p class="mt-1 text-stone-300 text-xs">Así que, si el Hijo los libera, serán ustedes
+                                    verdaderamente libres.</p>
+                            </div>
+                            <div
+                                class="bg-[#1e1e1e] p-3 rounded border border-[#333] hover:border-amber-700 cursor-pointer mb-2">
+                                <span class="font-bold text-amber-500">Gálatas 5:1</span>
+                                <p class="mt-1 text-stone-300 text-xs">Cristo nos libertó para que vivamos en libertad.
+                                    Por lo tanto, manténganse firmes y no se sometan nuevamente al yugo de esclavitud.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="border-t border-[#333] pt-4">
+                            <div class="text-xs text-stone-500 mb-2 uppercase tracking-wide">Diccionario Strong</div>
+                            <div class="text-white text-lg font-serif">ἐλευθερόω</div>
+                            <div class="text-stone-400 text-xs mb-1">eleutheróō (G1659)</div>
+                            <p class="text-xs text-stone-300 mt-2">Verbo: Liberar, hacer libre, eximir de
+                                responsabilidad, librar de dominio.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-lg border border-stone-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2 flex items-center"><span
+                            class="mr-2 text-amber-900">🔗</span> Referencias Cruzadas Dinámicas</h4>
+                    <p class="text-sm text-slate-600">Al hacer clic en un versículo (como Rom 8:2 en el mockup), un
+                        panel lateral debe cargar instantáneamente escrituras conectadas temáticamente, permitiendo que
+                        "la Biblia interprete a la Biblia".</p>
+                </div>
+                <div class="bg-white p-5 rounded-lg border border-stone-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2 flex items-center"><span
+                            class="mr-2 text-amber-900">📚</span> Herramientas Interlineales</h4>
+                    <p class="text-sm text-slate-600">Investigar palabras clave conectadas a diccionarios (como Strong)
+                        sin abandonar la pantalla de lectura. Crucial para la fase de "Interpretación" del estudio
+                        inductivo.</p>
+                </div>
+                <div class="bg-white p-5 rounded-lg border border-stone-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-2 flex items-center"><span
+                            class="mr-2 text-amber-900">📅</span> Gestión de Sesiones</h4>
+                    <p class="text-sm text-slate-600">El menú lateral izquierdo organiza planes de lectura por fechas y
+                        permite crear carpetas de "Sermones" donde se agrupan pasajes, notas e ilustraciones para un día
+                        de prédica específico.</p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- Data Storage & State ---
+
+        // Data for Bible Organization Chart
+        const bibleData = {
+            labels: [
+                'Ley (Pentateuco)', 'Historia (AT)', 'Poesía/Sabiduría',
+                'Profetas Mayores', 'Profetas Menores', 'Evangelios',
+                'Historia (NT)', 'Cartas Paulinas', 'Cartas Generales', 'Profecía (NT)'
+            ],
+            datasets: [{
+                data: [5, 12, 5, 5, 12, 4, 1, 13, 8, 1],
+                backgroundColor: [
+                    '#78350f', '#92400e', '#b45309', '#d97706', '#f59e0b', // AT colors (Amber/Browns)
+                    '#1e293b', '#334155', '#475569', '#64748b', '#94a3b8'  // NT colors (Slates)
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }],
+            descriptions: [
+                "Los 5 libros de Moisés. Contienen la creación, los patriarcas y la entrega de la Ley a Israel.",
+                "Narran la historia de Israel desde la entrada a Canaán, reyes, exilio y retorno.",
+                "Expresiones poéticas de adoración, lamento, y consejos prácticos para vivir sabiamente.",
+                "Mensajes proféticos largos. Advertencias de juicio y promesas de restauración mesiánica.",
+                "Mensajes proféticos más cortos, enfocados en arrepentimiento y justicia social.",
+                "Cuatro perspectivas biográficas sobre la vida, muerte y resurrección de Jesucristo.",
+                "El libro de los Hechos. Narra el origen y expansión de la iglesia primitiva.",
+                "Epístolas escritas por el apóstol Pablo a iglesias o individuos para doctrina y corrección.",
+                "Cartas escritas por otros apóstoles (Pedro, Juan, Santiago, Judas) a la iglesia en general.",
+                "El Apocalipsis. Literatura apocalíptica sobre la consumación del plan de Dios."
+            ],
+            books: [
+                "Génesis, Éxodo, Levítico, Números, Deuteronomio",
+                "Josué, Jueces, Rut, 1-2 Samuel, 1-2 Reyes, 1-2 Crónicas, Esdras, Nehemías, Ester",
+                "Job, Salmos, Proverbios, Eclesiastés, Cantares",
+                "Isaías, Jeremías, Lamentaciones, Ezequiel, Daniel",
+                "Oseas, Joel, Amós, Abdías, Jonás, Miqueas, Nahúm, Habacuc, Sofonías, Hageo, Zacarías, Malaquías",
+                "Mateo, Marcos, Lucas, Juan",
+                "Hechos de los Apóstoles",
+                "Romanos, 1-2 Corintios, Gálatas, Efesios, Filipenses, Colosenses, 1-2 Tesalonicenses, 1-2 Timoteo, Tito, Filemón",
+                "Hebreos, Santiago, 1-2 Pedro, 1-3 Juan, Judas",
+                "Apocalipsis"
+            ]
+        };
+
+        // Data for Study Methods
+        const methodsData = {
+            'inductivo': {
+                title: 'Estudio Inductivo',
+                desc: 'El método inductivo busca descubrir lo que el texto dice objetivamente antes de sacar conclusiones, basándose en tres pilares fundamentales.',
+                steps: `
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-600 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">1. Observación</h5>
+                        <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Qué dice el pasaje? <br>Identificar quién, qué, dónde, cuándo, por qué y cómo. Buscar palabras repetidas, contrastes, listas y verbos principales.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-700 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">2. Interpretación</h5>
+                        <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Qué significaba para los destinatarios originales? <br>Analizar el contexto histórico y cultural. Usar diccionarios bíblicos para palabras clave. Considerar el contexto de los capítulos adyacentes.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-amber-900">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">3. Aplicación</h5>
+                        <p class="text-sm text-slate-600 mt-1"><strong>Pregunta:</strong> ¿Cómo se aplica a mi vida hoy? <br>Traducir el principio universal descubierto en acciones prácticas. ¿Hay un pecado que confesar, una promesa que reclamar, un ejemplo a seguir?</p>
+                    </div>
+                `
+            },
+            'tematico': {
+                title: 'Estudio Temático (Tópico)',
+                desc: 'Este método rastrea un concepto específico a lo largo de toda la Escritura para obtener una teología completa sobre ese tema.',
+                steps: `
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-slate-500 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">1. Seleccionar el Tema</h5>
+                        <p class="text-sm text-slate-600 mt-1">Definir claramente qué se va a estudiar (Ej. "El perdón", "La oración", "El Espíritu Santo").</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-slate-600 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">2. Recopilar Versículos</h5>
+                        <p class="text-sm text-slate-600 mt-1">Usar una concordancia o el buscador de una app bíblica para listar todos los versículos relacionados con el tema. (Aquí es vital la herramienta de referencias cruzadas).</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-slate-700 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">3. Categorizar y Sintetizar</h5>
+                        <p class="text-sm text-slate-600 mt-1">Agrupar los versículos en subtemas. Por ejemplo, si es "La Oración": agrupar en "Condiciones para orar", "Ejemplos de oraciones", "Promesas sobre la oración".</p>
+                    </div>
+                     <div class="bg-white p-4 rounded shadow-sm border-l-4 border-slate-800">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">4. Resumen Doctrinal</h5>
+                        <p class="text-sm text-slate-600 mt-1">Escribir un resumen unificado de lo que la Biblia en su totalidad enseña sobre este tema específico.</p>
+                    </div>
+                `
+            },
+            'biografico': {
+                title: 'Estudio Biográfico',
+                desc: 'Consiste en investigar la vida, carácter y experiencias de un personaje bíblico para aprender de sus éxitos y fracasos.',
+                steps: `
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-blue-600 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">1. Recolección de Datos</h5>
+                        <p class="text-sm text-slate-600 mt-1">Leer todas las referencias donde se menciona al personaje. Anotar su trasfondo familiar, ocupación y contexto político/social.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-blue-700 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">2. Análisis de Carácter</h5>
+                        <p class="text-sm text-slate-600 mt-1">Identificar fortalezas y debilidades. ¿Cómo reaccionó ante crisis? ¿Cómo era su relación con Dios y con otros?</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-blue-900">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">3. Lecciones Centrales</h5>
+                        <p class="text-sm text-slate-600 mt-1">Resumir la principal lección que Dios nos enseña a través de esta vida. Ej. David (arrepentimiento verdadero), Pedro (restauración tras la falla).</p>
+                    </div>
+                `
+            },
+            'libro': {
+                title: 'Síntesis de Libro',
+                desc: 'Un enfoque macro. Se lee un libro entero rápidamente varias veces para comprender su estructura, tono y tema principal antes de estudiar detalles.',
+                steps: `
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-emerald-600 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">1. Lectura Continua</h5>
+                        <p class="text-sm text-slate-600 mt-1">Leer el libro de una sola sentada, sin detenerse en detalles, preferiblemente en una versión moderna. Tomar notas de impresiones generales.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-emerald-700 mb-4">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">2. Identificar el Tema y Propósito</h5>
+                        <p class="text-sm text-slate-600 mt-1">Descubrir por qué el autor escribió el libro. A menudo hay un "versículo clave" que resume el mensaje (Ej. Juan 20:31).</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm border-l-4 border-emerald-900">
+                        <h5 class="font-bold text-slate-800 uppercase text-sm tracking-wider">3. Crear un Bosquejo General</h5>
+                        <p class="text-sm text-slate-600 mt-1">Dividir el libro en sus secciones principales naturales. Asignar un título a cada capítulo o sección mayor para tener un mapa mental.</p>
+                    </div>
+                `
+            }
+        };
+
+        let myChart = null;
+
+        // --- Core Interaction Logic ---
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Remove active state from buttons
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+            // Show selected content
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            // Highlight selected button
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+
+            // Render chart only when its tab is active to ensure proper canvas sizing
+            if (tabId === 'org' && !myChart) {
+                initChart();
+            }
+        }
+
+        // Methods Section Logic
+        function loadMethod(methodKey) {
+            // Reset button styles
+            document.querySelectorAll('.method-btn').forEach(el => {
+                el.classList.remove('bg-stone-100', 'border-amber-900', 'shadow-sm');
+            });
+            // Highlight active button
+            const activeBtn = document.getElementById(`btn-m-${methodKey}`);
+            activeBtn.classList.add('bg-stone-100', 'border-amber-900', 'shadow-sm');
+
+            // Update Content
+            const data = methodsData[methodKey];
+            document.getElementById('method-title').innerText = data.title;
+            document.getElementById('method-desc').innerText = data.desc;
+            document.getElementById('method-steps').innerHTML = data.steps;
+        }
+
+        // --- Chart.js Initialization ---
+        function initChart() {
+            const ctx = document.getElementById('genreChart').getContext('2d');
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: bibleData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: { family: "'Inter', sans-serif", size: 12 },
+                                color: '#475569'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return ` ${context.label}: ${context.raw} libros`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            updateGenreDetails(index);
+                        }
+                    },
+                    hover: { mode: 'index', intersect: true },
+                    cutout: '60%'
+                }
+            });
+
+            // Set initial state
+            updateGenreDetails(0);
+        }
+
+        // Update Text Box based on Chart click
+        function updateGenreDetails(index) {
+            const title = bibleData.labels[index];
+            const count = bibleData.datasets[0].data[index];
+            const desc = bibleData.descriptions[index];
+            const books = bibleData.books[index];
+            const testament = index < 5 ? "Antiguo Testamento" : "Nuevo Testamento";
+
+            document.getElementById('genre-title').innerText = title;
+            document.getElementById('genre-stats').innerHTML = `
+                <span>📚 ${count} Libros</span>
+                <span>•</span>
+                <span>📜 ${testament}</span>
+            `;
+            document.getElementById('genre-desc').innerText = desc;
+
+            const booksContainer = document.getElementById('genre-books');
+            booksContainer.innerText = books;
+            booksContainer.classList.remove('hidden');
+        }
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart(); // Initialize chart immediately since it's the default tab
+        });
+
+    </script>
+</body>
+
+</html>
