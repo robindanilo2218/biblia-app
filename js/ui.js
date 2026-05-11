@@ -29,10 +29,35 @@
             if (textInp) textInp.value = '';
         };
 
+        // ── Tooltip flotante global ────────────────────────────────────────
+        const floatTip = document.getElementById('floating-tooltip');
+        window._positionFloatTip = (e) => {
+            if (!floatTip || floatTip.style.display === 'none') return;
+            const margin = 18, tw = 340;
+            const th = floatTip.offsetHeight || 180;
+            let x = e.clientX + margin;
+            let y = e.clientY - 30;
+            if (x + tw > window.innerWidth - margin) x = e.clientX - tw - margin;
+            if (y + th > window.innerHeight - 8) y = window.innerHeight - th - 8;
+            if (y < 8) y = 8;
+            floatTip.style.left = x + 'px';
+            floatTip.style.top = y + 'px';
+        };
+        window._showFloatTip = (e) => {
+            const tt = e.currentTarget.dataset.tt;
+            if (!tt || !floatTip) return;
+            floatTip.innerHTML = tt;
+            floatTip.style.display = 'block';
+            window._positionFloatTip(e);
+        };
+        window._hideFloatTip = () => { if (floatTip) floatTip.style.display = 'none'; };
+
         window.viewSingleVerse = (id, fromHistory = false) => {
             if (!fromHistory) pushHistory('viewSingleVerse', [id]);
             if (!mainView) return;
             mainView.innerHTML = '';
+            const tb = document.getElementById('sticky-tracker-bar'); if(tb) tb.style.display='none';
+            const rb = document.getElementById('range-selector-bar'); if(rb) { rb.style.display='none'; rb.innerHTML=''; }
             const v = currentData.find(x => x.id === id);
             if (!v) return;
 
@@ -175,62 +200,59 @@
                 return verseRefMap.get(key) || null;
             };
 
+            // Mostrar barra fija del tracker (se llenará por globalUpdateTracker)
+            const trackerBar = document.getElementById('sticky-tracker-bar');
+            if (trackerBar) { trackerBar.style.display = 'flex'; trackerBar.innerHTML = `<div id="tracker-ref" class="tracker-info" style="flex:1;">${title}</div><button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 10px;color:white;font-weight:bold;cursor:pointer;font-size:0.9rem;flex-shrink:0;">⊟ Rango</button>`; }
+
+            // Panel de rango de versículos (barra separada, colapsable)
+            const rangeBar = document.getElementById('range-selector-bar');
+            if (rangeBar) { rangeBar.style.display = 'none'; rangeBar.innerHTML = `<span>Versículos del</span><input type="number" id="range-start" style="width:60px;border-radius:5px;border:none;padding:4px;text-align:center;" min="1" placeholder="Ini"><span>al</span><input type="number" id="range-end" style="width:60px;border-radius:5px;border:none;padding:4px;text-align:center;" min="1" placeholder="Fin"><button id="btn-apply-range" style="background:var(--secondary);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;">Filtrar</button><button id="btn-clear-range" style="background:#e74c3c;border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;">✕</button>`; }
+
             mainView.innerHTML = `
-                <div class="sticky-tracker" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div id="tracker-ref" class="tracker-info">${title}</div>
-                    <div class="tracker-nav" id="tracker-nav">
-                        ${target.type === 'chapter' ? '<button id="tr-prev" style="display:none;">⬅️</button><button id="tr-next" style="display:none;">➡️</button>' : ''}
-                        <button id="btn-range-toggle" title="Filtrar por Rango" style="margin-left:10px; background:var(--secondary); border:none; border-radius:50%; width:28px; height:28px; color:white; font-weight:bold; cursor:pointer; font-size:1.1rem; line-height:1;">+</button>
-                    </div>
-                </div>
-                <div id="range-selector" style="display:none; background:var(--primary); color:white; padding:10px; border-radius:0 0 10px 10px; margin-top:-15px; margin-bottom:15px; z-index:49; position:relative; box-shadow:0 4px 10px rgba(0,0,0,0.2); justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <span>Versículos del</span>
-                    <input type="number" id="range-start" style="width:60px; border-radius:5px; border:none; padding:4px; text-align:center;" min="1" placeholder="Ini"> 
-                    <span>al</span>
-                    <input type="number" id="range-end" style="width:60px; border-radius:5px; border:none; padding:4px; text-align:center;" min="1" placeholder="Fin">
-                    <button id="btn-apply-range" style="background:var(--secondary); border:none; color:white; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">Filtrar</button>
-                    <button id="btn-clear-range" style="background:#e74c3c; border:none; color:white; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;" title="Borrar Filtro">X</button>
-                </div>
                 <div class="reading-container">
                     <h2>${title}</h2>
                     <div id="notes-top"></div>
                     <div id="read-text"></div>
                 </div>`;
 
-            // Event listeners para rango de versículos
+            // Event listeners rango de versículos
             const btnRangeToggle = document.getElementById('btn-range-toggle');
-            const rangeSelector = document.getElementById('range-selector');
             if(btnRangeToggle) {
                 btnRangeToggle.onclick = () => {
-                    rangeSelector.style.display = rangeSelector.style.display === 'none' ? 'flex' : 'none';
-                    if (rangeSelector.style.display === 'flex' && window.currentTrackerRef) {
-                        document.getElementById('range-start').value = window.currentTrackerRef.verse;
-                        document.getElementById('range-end').value = window.currentTrackerRef.verse;
+                    const rb = document.getElementById('range-selector-bar');
+                    if (!rb) return;
+                    rb.style.display = rb.style.display === 'none' ? 'flex' : 'none';
+                    if (rb.style.display === 'flex' && window.currentTrackerRef) {
+                        const rs = document.getElementById('range-start');
+                        const re = document.getElementById('range-end');
+                        if(rs) rs.value = window.currentTrackerRef.verse;
+                        if(re) re.value = window.currentTrackerRef.verse;
                     }
                 };
             }
-            const btnApplyRange = document.getElementById('btn-apply-range');
-            if (btnApplyRange) btnApplyRange.onclick = () => {
-                let s = parseInt(document.getElementById('range-start').value);
-                let e = parseInt(document.getElementById('range-end').value);
-                if (isNaN(s) || isNaN(e)) return;
-                if (s > e) [s, e] = [e, s];
-                document.querySelectorAll('.verse-text-span').forEach(span => {
-                    // data-ref = "Libro Cap:Ver" — extraer el número de versículo después de ':'
-                    const ref = span.dataset.ref || '';
-                    const colon = ref.lastIndexOf(':');
-                    if (colon !== -1) {
-                        const vn = parseInt(ref.substring(colon + 1));
-                        span.style.display = (!isNaN(vn) && vn >= s && vn <= e) ? 'inline' : 'none';
+            // delegación de eventos en range-selector-bar
+            const rangeBar2 = document.getElementById('range-selector-bar');
+            if (rangeBar2) {
+                rangeBar2.onclick = (ev) => {
+                    const btn = ev.target.closest('button');
+                    if (!btn) return;
+                    if (btn.id === 'btn-apply-range') {
+                        let s = parseInt(document.getElementById('range-start').value);
+                        let e2 = parseInt(document.getElementById('range-end').value);
+                        if (isNaN(s) || isNaN(e2)) return;
+                        if (s > e2) [s, e2] = [e2, s];
+                        document.querySelectorAll('.verse-text-span').forEach(span => {
+                            const ref = span.dataset.ref || '';
+                            const colon = ref.lastIndexOf(':');
+                            if (colon !== -1) { const vn = parseInt(ref.substring(colon+1)); span.style.display = (!isNaN(vn) && vn>=s && vn<=e2)?'inline':'none'; }
+                        });
+                    } else if (btn.id === 'btn-clear-range') {
+                        document.getElementById('range-start').value = '';
+                        document.getElementById('range-end').value = '';
+                        document.querySelectorAll('.verse-text-span').forEach(s => s.style.display='inline');
                     }
-                });
-            };
-            const btnClearRange = document.getElementById('btn-clear-range');
-            if (btnClearRange) btnClearRange.onclick = () => {
-                document.getElementById('range-start').value = '';
-                document.getElementById('range-end').value = '';
-                document.querySelectorAll('.verse-text-span').forEach(span => span.style.display = 'inline');
-            };
+                };
+            }
 
             // Notas del nivel actual (testamento/categoría/libro/capítulo)
             const notesTop = document.getElementById('notes-top');
@@ -270,32 +292,47 @@
                 // Lista canónica de nombres para el autocompletar (nombres originales no normalizados)
                 const bookDisplayNames = [...new Set(allVerses.map(x => x.book).filter(Boolean))];
 
-                t.innerHTML = `
-                    <div class="tracker-smart-nav">
-                        <button class="trk-arrow-btn" onclick="window.navTracker('verse',-1)" title="Versículo anterior">◀</button>
+                // Poblar la barra fija del tracker con el nuevo layout
+                const trackerBarEl = document.getElementById('sticky-tracker-bar');
+                if (trackerBarEl) {
+                    trackerBarEl.innerHTML = `
+                        <div class="tracker-smart-nav">
+                            <div class="trk-field-group">
+                                <button class="trk-side-arrow" onclick="window.navTracker('book',-1)" title="Libro anterior">◀</button>
+                                <div class="trk-field-wrap" id="trk-book-wrap">
+                                    <label class="trk-label">Libro</label>
+                                    <input id="trk-book-input" class="trk-input" type="text"
+                                        value="${match[1]}" autocomplete="off" spellcheck="false" placeholder="Buscar libro…">
+                                    <div id="trk-book-suggestions" class="trk-suggestions"></div>
+                                </div>
+                                <button class="trk-side-arrow" onclick="window.navTracker('book',1)" title="Libro siguiente">▶</button>
+                            </div>
+                            <div class="trk-field-group">
+                                <button class="trk-side-arrow" onclick="window.navTracker('chapter',-1)" title="Capítulo anterior">◀</button>
+                                <div class="trk-field-wrap">
+                                    <label class="trk-label">Cap. <span id="trk-chap-hint" class="trk-hint">(máx ${maxChap})</span></label>
+                                    <input id="trk-chap-input" class="trk-input trk-num" type="number"
+                                        value="${match[2]}" min="1" max="${maxChap}" autocomplete="off">
+                                </div>
+                                <button class="trk-side-arrow" onclick="window.navTracker('chapter',1)" title="Capítulo siguiente">▶</button>
+                            </div>
+                            <div class="trk-field-group">
+                                <button class="trk-side-arrow" onclick="window.navTracker('verse',-1)" title="Versículo anterior">◀</button>
+                                <div class="trk-field-wrap">
+                                    <label class="trk-label">Vers. <span id="trk-verse-hint" class="trk-hint">(máx ${maxVerse})</span></label>
+                                    <input id="trk-verse-input" class="trk-input trk-num" type="number"
+                                        value="${match[3]}" min="1" max="${maxVerse}" autocomplete="off">
+                                </div>
+                                <button class="trk-side-arrow" onclick="window.navTracker('verse',1)" title="Versículo siguiente">▶</button>
+                            </div>
+                            <button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 8px;color:white;font-weight:bold;cursor:pointer;font-size:0.85rem;flex-shrink:0;align-self:center;">⊟</button>
+                        </div>`;
+                    trackerBarEl.style.display = 'flex';
+                }
+                // Limpiar también tracker-ref si existe (por compatibilidad)
+                const t = document.getElementById('tracker-ref');
+                if (t) t.style.display = 'none';
 
-                        <div class="trk-field-wrap" id="trk-book-wrap">
-                            <label class="trk-label">Libro</label>
-                            <input id="trk-book-input" class="trk-input" type="text"
-                                value="${match[1]}" autocomplete="off" spellcheck="false"
-                                placeholder="Buscar libro…">
-                            <div id="trk-book-suggestions" class="trk-suggestions"></div>
-                        </div>
-
-                        <div class="trk-field-wrap">
-                            <label class="trk-label">Cap. <span id="trk-chap-hint" class="trk-hint">(máx ${maxChap})</span></label>
-                            <input id="trk-chap-input" class="trk-input trk-num" type="number"
-                                value="${match[2]}" min="1" max="${maxChap}" autocomplete="off">
-                        </div>
-
-                        <div class="trk-field-wrap">
-                            <label class="trk-label">Vers. <span id="trk-verse-hint" class="trk-hint">(máx ${maxVerse})</span></label>
-                            <input id="trk-verse-input" class="trk-input trk-num" type="number"
-                                value="${match[3]}" min="1" max="${maxVerse}" autocomplete="off">
-                        </div>
-
-                        <button class="trk-arrow-btn" onclick="window.navTracker('verse',1)" title="Versículo siguiente">▶</button>
-                    </div>`;
 
                 // ── Lógica del autocompletar de Libro ──────────────────────────────
                 const bookInput = document.getElementById('trk-book-input');
@@ -489,15 +526,20 @@
                 const dot = (hasDot ? `<span class="has-persp-dot base"></span>` : '') + (hasRef ? `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;"></span>` : '');
                 
                 let span = document.createElement('span');
-                span.className = tt ? 'verse-text-span tooltip' : 'verse-text-span';
+                span.className = 'verse-text-span';
                 span.dataset.ref = `${v.book} ${v.reference}`;
                 span.dataset.version = v.version || '';
-                // Extraer número de versículo de forma segura
+                if (tt) span.dataset.tt = tt;  // tooltip almacenado en data attr
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
-                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot}${tt ? `<span class="tooltiptext">${tt}</span>` : ''}`;
-                span.onclick = () => viewSingleVerse(v.id);
+                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot}`;
+                if (tt) {
+                    span.addEventListener('mouseenter', window._showFloatTip);
+                    span.addEventListener('mousemove', window._positionFloatTip);
+                    span.addEventListener('mouseleave', window._hideFloatTip);
+                }
+                span.onclick = () => { window._hideFloatTip(); viewSingleVerse(v.id); };
                 readText.appendChild(span);
                 readingObserver.observe(span);
             });
@@ -526,28 +568,24 @@
 
         window.navTracker = (type, dir) => {
             try {
-                if (!window.currentTrackerRef) { alert("Ref null"); return; }
+                if (!window.currentTrackerRef) return;
                 let { book, chapter, verse } = window.currentTrackerRef;
                 let bIdx = BIBLE_BOOKS.indexOf(normalizeBookName(book));
-                if (bIdx === -1) { alert("Libro no encontrado en índice"); return; }
-                
+                if (bIdx === -1) return;
                 if (type === 'book') {
                     bIdx += dir;
                     if (bIdx < 0 || bIdx >= BIBLE_BOOKS.length) return;
-                    book = BIBLE_BOOKS[bIdx];
+                    book = BIBLE_BOOKS[bIdx]; chapter = 1; verse = 1;
                 } else if (type === 'chapter') {
-                    chapter += dir;
+                    chapter += dir; verse = 1;
                 } else if (type === 'verse') {
                     verse += dir;
                 }
-                
-                window.navToBCV(book, chapter, verse);
-            } catch(e) {
-                alert("Error navTracker: " + e.message);
-            }
+                window.navToBCV(book, chapter, verse, true); // sequential=true
+            } catch(e) { console.error('navTracker', e); }
         };
 
-        window.navToBCV = (bName, cNum, vNum) => {
+        window.navToBCV = (bName, cNum, vNum, sequential = false) => {
             try {
                 let bReal = normalizeBookName(bName);
                 // Obtener versión del trackerRef o del primer versículo en currentData
@@ -575,39 +613,41 @@
                 
                 let maxVerse = Math.max(...inChap.map(getV));
                 if (vNum > maxVerse) {
-                    if (cNum < maxChap) {
-                        cNum++;
-                        vNum = 1;
-                        inChap = inBook.filter(x => getC(x) === cNum);
-                    } else {
-                        let bIdx = BIBLE_BOOKS.indexOf(bReal);
-                        if(bIdx < BIBLE_BOOKS.length-1) {
-                            bReal = BIBLE_BOOKS[bIdx+1];
-                            cNum = 1;
-                            vNum = 1;
-                            inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                    if (sequential) {
+                        // Navegación secuencial (flechas): avanzar al siguiente capítulo/libro
+                        if (cNum < maxChap) {
+                            cNum++; vNum = 1;
                             inChap = inBook.filter(x => getC(x) === cNum);
                         } else {
-                            vNum = maxVerse;
+                            let bIdx = BIBLE_BOOKS.indexOf(bReal);
+                            if(bIdx < BIBLE_BOOKS.length-1) {
+                                bReal = BIBLE_BOOKS[bIdx+1]; cNum = 1; vNum = 1;
+                                inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                                inChap = inBook.filter(x => getC(x) === cNum);
+                            } else { vNum = maxVerse; }
                         }
+                    } else {
+                        // Navegación directa (escribir): clamp al último versículo
+                        vNum = maxVerse;
                     }
                 } else if (vNum < 1) {
-                    if (cNum > 1) {
-                        cNum--;
-                        let prevChap = inBook.filter(x => getC(x) === cNum);
-                        vNum = Math.max(...prevChap.map(getV));
-                        inChap = prevChap;
-                    } else {
-                        let bIdx = BIBLE_BOOKS.indexOf(bReal);
-                        if(bIdx > 0) {
-                            bReal = BIBLE_BOOKS[bIdx-1];
-                            inBook = all.filter(x => normalizeBookName(x.book) === bReal);
-                            cNum = Math.max(...inBook.map(getC));
-                            inChap = inBook.filter(x => getC(x) === cNum);
-                            vNum = Math.max(...inChap.map(getV));
+                    if (sequential) {
+                        if (cNum > 1) {
+                            cNum--;
+                            let prevChap = inBook.filter(x => getC(x) === cNum);
+                            vNum = Math.max(...prevChap.map(getV)); inChap = prevChap;
                         } else {
-                            vNum = 1;
+                            let bIdx = BIBLE_BOOKS.indexOf(bReal);
+                            if(bIdx > 0) {
+                                bReal = BIBLE_BOOKS[bIdx-1];
+                                inBook = all.filter(x => normalizeBookName(x.book) === bReal);
+                                cNum = Math.max(...inBook.map(getC));
+                                inChap = inBook.filter(x => getC(x) === cNum);
+                                vNum = Math.max(...inChap.map(getV));
+                            } else { vNum = 1; }
                         }
+                    } else {
+                        vNum = 1;
                     }
                 }
                 

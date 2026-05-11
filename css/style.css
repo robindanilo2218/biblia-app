@@ -205,6 +205,69 @@
             overflow: hidden;
         }
 
+        /* Barra del tracker fija encima del scroll */
+        #sticky-tracker-bar {
+            background: var(--primary);
+            color: white;
+            padding: 6px 14px;
+            flex-shrink: 0;
+            z-index: 60;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Panel de rango (colapsable, debajo del tracker) */
+        #range-selector-bar {
+            flex-shrink: 0;
+            z-index: 59;
+            flex-wrap: wrap;
+        }
+
+        /* Grupo: [◀] [campo] [▶] */
+        .trk-field-group {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 3px 5px;
+        }
+
+        .trk-side-arrow {
+            background: rgba(255,255,255,0.15) !important;
+            border: none !important;
+            color: white !important;
+            font-size: 0.85rem !important;
+            cursor: pointer !important;
+            border-radius: 5px !important;
+            padding: 4px 7px !important;
+            flex-shrink: 0;
+            line-height: 1;
+            transition: background 0.12s;
+        }
+        .trk-side-arrow:hover { background: rgba(255,255,255,0.3) !important; }
+
+        /* Tooltip flotante JS */
+        .floating-tooltip {
+            position: fixed;
+            width: 340px;
+            background: #1a252f;
+            color: white;
+            padding: 12px 14px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            font-size: 0.86rem;
+            line-height: 1.55;
+            z-index: 9999;
+            pointer-events: none;
+            border-left: 4px solid var(--secondary);
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+
+
         #scrollable-content {
             flex: 1;
             overflow-y: auto;
