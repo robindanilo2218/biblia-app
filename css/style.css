@@ -513,6 +513,31 @@
             box-shadow: 0 0 0 2px #03a9f4;
         }
 
+        /* LA BURBUJA AMARILLA (Exclusivo para Ratón/Mouse físico) */
+        /* 'hover: hover' detecta si el hardware permite flotar */
+        /* 'pointer: fine' detecta si se usa un puntero preciso (ratón/stylus) */
+        @media (hover: hover) and (pointer: fine) {
+            .verse-text-span:hover {
+                background-color: #fff9c4; /* Amarillo pastel */
+                cursor: pointer;
+            }
+            
+            .verse-text-span:hover .tooltiptext {
+                visibility: visible;
+                opacity: 1;
+                bottom: 130%; /* La burbuja flota arriba del ratón */
+            }
+        }
+
+        /* Clase artificial para forzar el amarillo en MÓVILES (cuando dejas el dedo pegado) */
+        .verse-text-span.force-yellow {
+            background-color: #fff9c4;
+        }
+        .verse-text-span.force-yellow .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
         .verse-num {
             font-size: 0.75em;
             font-weight: 800;

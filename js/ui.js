@@ -1,4 +1,6 @@
 /** MOTOR DE VISTA */
+let isTyping = false;
+
         window.formatVerseText = (text) => {
             if (!text) return '';
             return text.replace(/#([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]+)/g, '<span class="hashtag-link" style="color:var(--secondary);cursor:pointer;font-weight:bold;" onclick="event.stopPropagation(); window.goToTopic(\'$1\');">#$1</span>');
@@ -67,32 +69,48 @@
         };
 
         const attachVerseTapBehavior = (span, verseId) => {
-            const TAP_MAX_DELAY = 300;
+            // Variables para calcular los gestos en el móvil
+            let touchTimer;
             let lastTapTime = 0;
-            let tapTimeout = null;
+            const SHORT_HOLD = 300; // 300ms para mostrar la burbuja amarilla
+            const DOUBLE_TAP = 300; // Tiempo máximo entre dos toques rápidos
 
-            span.addEventListener('pointerup', (event) => {
-                if (event.pointerType === 'mouse' && event.button !== 0) return;
-                event.preventDefault();
-                event.stopPropagation();
+            // A. El dedo TOCA la pantalla
+            span.addEventListener('touchstart', (e) => {
+                // Iniciamos el cronómetro para la burbuja amarilla
+                touchTimer = setTimeout(() => {
+                    // Si el dedo se quedó quieto 300ms, forzamos la burbuja amarilla
+                    document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
+                    span.classList.add('force-yellow');
+                }, SHORT_HOLD);
+            }, { passive: true });
 
-                const now = Date.now();
-                if (lastTapTime && (now - lastTapTime) < TAP_MAX_DELAY && tapTimeout) {
-                    clearTimeout(tapTimeout);
-                    tapTimeout = null;
-                    lastTapTime = 0;
-                    window._hideFloatTip();
-                    viewSingleVerse(verseId);
-                    return;
-                }
+            // B. El dedo se MUEVE (quiere hacer scroll/celeste)
+            span.addEventListener('touchmove', () => {
+                // Cancelamos la burbuja amarilla porque el usuario está deslizando
+                clearTimeout(touchTimer);
+                span.classList.remove('force-yellow');
+            }, { passive: true });
 
-                lastTapTime = now;
-                tapTimeout = setTimeout(() => {
-                    tapTimeout = null;
-                    lastTapTime = 0;
-                    window._hideFloatTip();
-                    window.focusVerse(span);
-                }, TAP_MAX_DELAY);
+            // C. El dedo SUELTA la pantalla
+            span.addEventListener('touchend', (e) => {
+                clearTimeout(touchTimer); // Evitar burbujas accidentales si soltó rápido
+                
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTapTime;
+
+                // ¿Fue un Doble Toque Rápido?
+                if (tapLength < DOUBLE_TAP && tapLength > 0) {
+                    e.preventDefault(); 
+                    span.classList.remove('force-yellow');
+                    viewSingleVerse(verseId); // Entra a las notas del versículo
+                } 
+                lastTapTime = currentTime;
+            });
+
+            // Clic Normal (Para el doble clic en el ratón de escritorio)
+            span.addEventListener('dblclick', () => {
+                viewSingleVerse(verseId);
             });
         };
 
@@ -564,6 +582,7 @@
             let currentlyVisibleVerses = new Set();
             readingObserver = new IntersectionObserver(es => {
                 if (window.manualHighlightMode) return;
+                if (isTyping) return;
                 es.forEach(e => {
                     if (e.isIntersecting) currentlyVisibleVerses.add(e.target);
                     else { currentlyVisibleVerses.delete(e.target); e.target.classList.remove('active-reading'); }
@@ -580,7 +599,7 @@
                     if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
                     if(window.markVerseAsRead) window.markVerseAsRead(activeVerse.dataset.ref, activeVerse.textContent);
                 }
-            }, { rootMargin: '-20% 0px -20% 0px' });
+            }, { rootMargin: '-30% 0px -50% 0px' }); // Margen matemático: detecta justo el centro de la pantalla
 
             // Renderizar versículos con separadores libro/capítulo en vistas multi-capítulo
             const isMultiCap = (target.type !== 'chapter');
@@ -671,6 +690,26 @@
                 if (n) n.onclick = () => navTracker('chapter', 1);
             }
             setEditor(target, "Añadir nota a este bloque...");
+
+            // Detectar teclado para congelar el observer
+            const inputs = document.querySelectorAll('input, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    isTyping = true;
+                });
+                input.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        isTyping = false;
+                    }, 200);
+                });
+            });
+
+            // Limpieza: Si tocas en cualquier espacio vacío del móvil, la burbuja amarilla desaparece
+            document.addEventListener('touchstart', (e) => {
+                if (!e.target.closest('.verse-text-span')) {
+                    document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
+                }
+            }, { passive: true });
         };
 
         const nav = (t, off) => {
