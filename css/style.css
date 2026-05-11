@@ -217,6 +217,30 @@
             gap: 6px;
         }
 
+        #sticky-tracker-bar button#btn-reading-toggle {
+            background: var(--secondary);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s ease;
+        }
+
+        #sticky-tracker-bar button#btn-reading-toggle:hover {
+            background: #5aa9e6;
+        }
+
+        #sticky-tracker-bar select#reading-speed-select {
+            border-radius: 6px;
+            padding: 5px 8px;
+            border: none;
+            color: #333;
+            font-size: 0.95rem;
+            min-width: 110px;
+        }
+
         /* Panel de rango (colapsable, debajo del tracker) */
         #range-selector-bar {
             flex-shrink: 0;
@@ -513,6 +537,9 @@
         .verse-text-span.active-reading {
             background-color: #e1f5fe;
             box-shadow: 0 0 0 2px #03a9f4;
+            font-size: var(--active-reading-size, 1.5rem);
+            line-height: 1.4;
+            transition: font-size 0.25s ease, background-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         /* LA BURBUJA AMARILLA (Exclusivo para Ratón/Mouse físico) */

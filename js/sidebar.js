@@ -207,7 +207,11 @@
                                             sp.dataset.ref = `${v.book} ${v.reference}`;
                                             const vn = (v.reference||'').split(':')[1] || '';
                                             sp.innerHTML = `<span class="verse-num">${vn}</span>${window.formatVerseText ? window.formatVerseText(v.text) : (v.text || '')}`;
-                                            sp.onclick = () => window.viewSingleVerse(v.id);
+                                            if (typeof attachVerseTapBehavior === 'function') {
+                                                attachVerseTapBehavior(sp, v.id);
+                                            } else {
+                                                sp.onclick = () => window.viewSingleVerse(v.id);
+                                            }
                                             if (loadBtn && loadBtn.parentNode === readText) {
                                                 readText.insertBefore(sp, loadBtn);
                                             } else {

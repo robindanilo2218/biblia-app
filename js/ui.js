@@ -1,6 +1,11 @@
 /** MOTOR DE VISTA */
 let isTyping = false;
 let currentTooltipTarget = null;
+let currentActiveVerse = null;
+let activeReadTimer = null;
+let activeReadRef = null;
+let activeReadText = '';
+const VERSE_READ_DELAY = 2200;
 
         window.formatVerseText = (text) => {
             if (!text) return '';
@@ -17,6 +22,107 @@ let currentTooltipTarget = null;
                     search.dispatchEvent(new KeyboardEvent('keyup', {'key':'Enter'}));
                 }
             }, 150);
+        };
+
+        let autoReadingTimer = null;
+        let autoReadingSpeedKey = 'normal';
+        let autoReadingSpeedValue = 2200;
+        let autoReadingFontSizeKey = 'normal';
+        let autoReadingFontSizeValue = 1.5;
+        let autoReadingActive = false;
+        const AUTO_READING_SPEEDS = {
+            'muy-lento': { label: 'Muy lento', value: 4500 },
+            'lento': { label: 'Lento', value: 3200 },
+            'normal': { label: 'Normal', value: 2200 },
+            'rapido': { label: 'Rápido', value: 1500 },
+            'muy-rapido': { label: 'Muy rápido', value: 900 }
+        };
+        const AUTO_READING_FONT_SIZES = {
+            'normal': { label: 'Normal', value: 1 },
+            'x1.5': { label: '1.5×', value: 1.5 },
+            'x2': { label: '2×', value: 2 },
+            'x3': { label: '3×', value: 3 }
+        };
+
+        window.updateReadingAutoControls = () => {
+            const trackerBar = document.getElementById('sticky-tracker-bar');
+            const toggle = trackerBar ? trackerBar.querySelector('#btn-reading-toggle') : null;
+            const speed = trackerBar ? trackerBar.querySelector('#reading-speed-select') : null;
+            const fontSize = trackerBar ? trackerBar.querySelector('#reading-font-size-select') : null;
+            if (toggle) {
+                toggle.textContent = autoReadingActive ? '⏸ Detener' : '▶ Leer';
+                toggle.title = autoReadingActive ? 'Pausar lectura automática' : 'Iniciar lectura automática';
+                toggle.style.background = autoReadingActive ? '#ff7043' : 'var(--secondary)';
+            }
+            if (speed) speed.value = autoReadingSpeedKey;
+            if (fontSize) fontSize.value = autoReadingFontSizeKey;
+        };
+
+        window.setReadingAutoSpeed = (key) => {
+            if (!AUTO_READING_SPEEDS[key]) return;
+            autoReadingSpeedKey = key;
+            autoReadingSpeedValue = AUTO_READING_SPEEDS[key].value;
+            window.updateReadingAutoControls();
+            if (autoReadingTimer) {
+                clearTimeout(autoReadingTimer);
+                autoReadingTimer = setTimeout(window.advanceReadingAutoPlay, autoReadingSpeedValue);
+            }
+        };
+
+        window.setReadingAutoFontSize = (key) => {
+            if (!AUTO_READING_FONT_SIZES[key]) return;
+            autoReadingFontSizeKey = key;
+            autoReadingFontSizeValue = AUTO_READING_FONT_SIZES[key].value;
+            document.documentElement.style.setProperty('--active-reading-size', `${autoReadingFontSizeValue}rem`);
+            window.updateReadingAutoControls();
+        };
+
+        window.stopReadingAutoPlay = () => {
+            if (autoReadingTimer) clearTimeout(autoReadingTimer);
+            autoReadingTimer = null;
+            autoReadingActive = false;
+            window.updateReadingAutoControls();
+        };
+
+        window.pauseReadingAutoPlay = () => {
+            if (!autoReadingActive) return;
+            window.stopReadingAutoPlay();
+        };
+
+        window.advanceReadingAutoPlay = () => {
+            const allSpans = Array.from(document.querySelectorAll('.verse-text-span'));
+            const visibleSpans = allSpans.filter(span => span.offsetParent !== null);
+            if (!visibleSpans.length) {
+                return window.stopReadingAutoPlay();
+            }
+            const current = document.querySelector('.verse-text-span.active-reading');
+            let next = visibleSpans[0];
+            if (current) {
+                const index = visibleSpans.indexOf(current);
+                if (index >= 0 && index < visibleSpans.length - 1) {
+                    next = visibleSpans[index + 1];
+                } else {
+                    return window.stopReadingAutoPlay();
+                }
+            }
+            visibleSpans.forEach(span => span.classList.remove('active-reading'));
+            next.classList.add('active-reading');
+            next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (window.globalUpdateTracker) window.globalUpdateTracker(next.dataset.ref, next.dataset.version);
+            if (autoReadingTimer) clearTimeout(autoReadingTimer);
+            autoReadingTimer = setTimeout(window.advanceReadingAutoPlay, autoReadingSpeedValue);
+        };
+
+        window.startReadingAutoPlay = () => {
+            if (autoReadingActive) return;
+            autoReadingActive = true;
+            window.updateReadingAutoControls();
+            window.advanceReadingAutoPlay();
+        };
+
+        window.toggleReadingAutoPlay = () => {
+            if (autoReadingActive) window.stopReadingAutoPlay();
+            else window.startReadingAutoPlay();
         };
 
         const pushHistory = (fn, params) => {
@@ -140,6 +246,7 @@ let currentTooltipTarget = null;
                 viewSingleVerse(verseId);
             });
         };
+        window.attachVerseTapBehavior = attachVerseTapBehavior;
 
         const setEditor = (target, placeholder) => {
             editorTarget = target;
@@ -213,6 +320,40 @@ let currentTooltipTarget = null;
             }, 650);
         };
 
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('focusin', (e) => {
+                if (e.target && (e.target.matches('input') || e.target.matches('textarea'))) {
+                    isTyping = true;
+                }
+            });
+            document.addEventListener('focusout', (e) => {
+                if (e.target && (e.target.matches('input') || e.target.matches('textarea'))) {
+                    setTimeout(() => {
+                        isTyping = false;
+                    }, 200);
+                }
+            });
+            document.addEventListener('touchstart', (e) => {
+                if (!e.target.closest || !e.target.closest('.verse-text-span')) {
+                    document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
+                    window._hideFloatTip();
+                    currentTooltipTarget = null;
+                }
+            }, { passive: true });
+
+            document.addEventListener('pointerdown', (e) => {
+                if (autoReadingActive && e.target && !e.target.closest('#sticky-tracker-bar')) {
+                    window.pauseReadingAutoPlay();
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchstart', (e) => {
+                if (autoReadingActive && e.target && !e.target.closest('#sticky-tracker-bar')) {
+                    window.pauseReadingAutoPlay();
+                }
+            }, { passive: true });
+        });
+
         window.viewSingleVerse = (id, fromHistory = false) => {
             if (!fromHistory) pushHistory('viewSingleVerse', [id]);
             if (!mainView) return;
@@ -239,6 +380,7 @@ let currentTooltipTarget = null;
             `;
             // Botón Ver Capítulo
             const btnVerCap = document.getElementById('btn-ver-capitulo');
+            if (window.globalUpdateTracker) window.globalUpdateTracker(v.reference, v.version);
             if (btnVerCap) {
                 btnVerCap.onmouseenter = () => btnVerCap.style.opacity = '0.85';
                 btnVerCap.onmouseleave = () => btnVerCap.style.opacity = '1';
@@ -338,6 +480,7 @@ let currentTooltipTarget = null;
         };
 
         window.viewReading = (title, items, target, fromHistory = false) => {
+            if (window.stopReadingAutoPlay) window.stopReadingAutoPlay();
             if (!fromHistory) pushHistory('viewReading', [title, items, target]);
             if (!mainView) return;
             mainView.innerHTML = '';
@@ -386,7 +529,12 @@ let currentTooltipTarget = null;
 
             // Mostrar barra fija del tracker (se llenará por globalUpdateTracker)
             const trackerBar = document.getElementById('sticky-tracker-bar');
-            if (trackerBar) { trackerBar.style.display = 'flex'; trackerBar.innerHTML = `<div id="tracker-ref" class="tracker-info" style="flex:1;">${title}</div><button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 10px;color:white;font-weight:bold;cursor:pointer;font-size:0.9rem;flex-shrink:0;">⊟ Rango</button>`; }
+            if (trackerBar) {
+                trackerBar.style.display = 'flex';
+                trackerBar.innerHTML = `<div id="tracker-ref" class="tracker-info" style="flex:1;">${title}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><button id="btn-reading-toggle" title="Iniciar lectura automática" style="background:var(--secondary);border:none;border-radius:6px;padding:6px 12px;color:white;font-weight:bold;cursor:pointer;flex-shrink:0;">▶ Leer</button><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Velocidad:<select id="reading-speed-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="muy-lento">Muy lento</option> <option value="lento">Lento</option> <option value="normal" selected>Normal</option> <option value="rapido">Rápido</option> <option value="muy-rapido">Muy rápido</option> </select></label><label style="display:flex;align-items:center;gap:6px;color:white;font-size:0.9rem;margin:0;">Tamaño:<select id="reading-font-size-select" style="border-radius:6px;padding:4px 8px;border:none;font-size:0.95rem;color:#333;"> <option value="normal">Normal</option> <option value="x1.5">1.5×</option> <option value="x2">2×</option> <option value="x3">3×</option> </select></label></div><button id="btn-range-toggle" title="Filtrar por Rango" style="background:var(--secondary);border:none;border-radius:6px;padding:4px 10px;color:white;font-weight:bold;cursor:pointer;font-size:0.9rem;flex-shrink:0;">⊟ Rango</button>`;
+                window.updateReadingAutoControls();
+                window.setReadingAutoFontSize(autoReadingFontSizeKey);
+            }
 
             // Panel de rango de versículos (barra separada, colapsable)
             const rangeBar = document.getElementById('range-selector-bar');
@@ -403,6 +551,11 @@ let currentTooltipTarget = null;
             const trackerBarEvt = document.getElementById('sticky-tracker-bar');
             if(trackerBarEvt) {
                 trackerBarEvt.onclick = (ev) => {
+                    const playBtn = ev.target.closest('#btn-reading-toggle');
+                    if (playBtn) {
+                        window.toggleReadingAutoPlay();
+                        return;
+                    }
                     const btn = ev.target.closest('#btn-range-toggle');
                     if (!btn) return;
                     const rb = document.getElementById('range-selector-bar');
@@ -414,6 +567,18 @@ let currentTooltipTarget = null;
                         if(rs) rs.value = window.currentTrackerRef.verse;
                         if(re) re.value = window.currentTrackerRef.verse;
                     }
+                };
+            }
+            const speedSelect = document.getElementById('reading-speed-select');
+            if (speedSelect) {
+                speedSelect.onchange = (ev) => {
+                    window.setReadingAutoSpeed(ev.target.value);
+                };
+            }
+            const fontSizeSelect = document.getElementById('reading-font-size-select');
+            if (fontSizeSelect) {
+                fontSizeSelect.onchange = (ev) => {
+                    window.setReadingAutoFontSize(ev.target.value);
                 };
             }
             // delegación de eventos en range-selector-bar
@@ -494,7 +659,7 @@ let currentTooltipTarget = null;
                             <div class="trk-field-group">
                                 <button class="trk-side-arrow" onclick="window.navTracker('chapter',-1)" title="Capítulo anterior">◀</button>
                                 <div class="trk-field-wrap">
-                                    <label class="trk-label">Cap. <span id="trk-chap-hint" class="trk-hint">(máx ${maxChap})</span></label>
+                                    <label class="trk-label">Cap. <span id="trk-chap-hint" class="trk-hint">${maxChap}</span></label>
                                     <input id="trk-chap-input" class="trk-input trk-num" type="number"
                                         value="${match[2]}" min="1" max="${maxChap}" autocomplete="off">
                                 </div>
@@ -503,7 +668,7 @@ let currentTooltipTarget = null;
                             <div class="trk-field-group">
                                 <button class="trk-side-arrow" onclick="window.navTracker('verse',-1)" title="Versículo anterior">◀</button>
                                 <div class="trk-field-wrap">
-                                    <label class="trk-label">Vers. <span id="trk-verse-hint" class="trk-hint">(máx ${maxVerse})</span></label>
+                                    <label class="trk-label">Vers. <span id="trk-verse-hint" class="trk-hint">${maxVerse}</span></label>
                                     <input id="trk-verse-input" class="trk-input trk-num" type="number"
                                         value="${match[3]}" min="1" max="${maxVerse}" autocomplete="off">
                                 </div>
@@ -579,12 +744,12 @@ let currentTooltipTarget = null;
                     const inB = allVerses.filter(x => normalizeBookName(x.book) === bR);
                     const mxC = inB.length > 0 ? Math.max(...inB.map(getC)) : 999;
                     chapInput.max = mxC;
-                    if (chapHint) chapHint.textContent = `(máx ${mxC})`;
+                    if (chapHint) chapHint.textContent = `${mxC}`;
                     const cNum = parseInt(chapInput.value) || 1;
                     const inC = inB.filter(x => getC(x) === cNum);
                     const mxV = inC.length > 0 ? Math.max(...inC.map(getV)) : 999;
                     verseInput.max = mxV;
-                    if (verseHint) verseHint.textContent = `(máx ${mxV})`;
+                    if (verseHint) verseHint.textContent = `${mxV}`;
                 };
 
                 chapInput.addEventListener('change', () => {
@@ -638,16 +803,46 @@ let currentTooltipTarget = null;
                     else { currentlyVisibleVerses.delete(e.target); e.target.classList.remove('active-reading'); }
                 });
                 let activeVerse = null, minDiff = Infinity, centerY = window.innerHeight / 2;
+                let topmostVisibleVerse = null, topmostY = Infinity;
                 currentlyVisibleVerses.forEach(el => {
                     let rect = el.getBoundingClientRect();
                     let diff = Math.abs(rect.top + rect.height/2 - centerY);
                     if (diff < minDiff) { minDiff = diff; activeVerse = el; }
+                    if (rect.top < topmostY) { topmostY = rect.top; topmostVisibleVerse = el; }
                 });
-                document.querySelectorAll('.active-reading').forEach(el => { if (el !== activeVerse) el.classList.remove('active-reading'); });
-                if (activeVerse) {
+                const scrollRoot = document.getElementById('scrollable-content');
+                const scrollTop = scrollRoot ? scrollRoot.scrollTop : (window.pageYOffset || document.documentElement.scrollTop || 0);
+                const atBeginning = scrollTop < 100;
+                if (atBeginning && topmostVisibleVerse) {
+                    activeVerse = topmostVisibleVerse;
+                }
+
+                if (currentActiveVerse && currentActiveVerse !== activeVerse) {
+                    currentActiveVerse.classList.remove('active-reading');
+                }
+
+                if (activeVerse && currentActiveVerse !== activeVerse) {
                     activeVerse.classList.add('active-reading');
+                    currentActiveVerse = activeVerse;
                     if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
-                    if(window.markVerseAsRead) window.markVerseAsRead(activeVerse.dataset.ref, activeVerse.textContent);
+                    if (activeReadTimer) {
+                        clearTimeout(activeReadTimer);
+                        activeReadTimer = null;
+                    }
+                    activeReadRef = activeVerse.dataset.ref;
+                    activeReadText = activeVerse.textContent;
+                    activeReadTimer = setTimeout(() => {
+                        if (window.markVerseAsRead && activeReadRef) {
+                            window.markVerseAsRead(activeReadRef, activeReadText);
+                        }
+                        activeReadTimer = null;
+                    }, VERSE_READ_DELAY);
+                } else if (!activeVerse) {
+                    currentActiveVerse = null;
+                    if (activeReadTimer) {
+                        clearTimeout(activeReadTimer);
+                        activeReadTimer = null;
+                    }
                 }
             }, { rootMargin: '-30% 0px -50% 0px' }); // Margen matemático: detecta justo el centro de la pantalla
 
@@ -740,28 +935,6 @@ let currentTooltipTarget = null;
                 if (n) n.onclick = () => navTracker('chapter', 1);
             }
             setEditor(target, "Añadir nota a este bloque...");
-
-            // Detectar teclado para congelar el observer
-            const inputs = document.querySelectorAll('input, textarea');
-            inputs.forEach(input => {
-                input.addEventListener('focus', () => {
-                    isTyping = true;
-                });
-                input.addEventListener('blur', () => {
-                    setTimeout(() => {
-                        isTyping = false;
-                    }, 200);
-                });
-            });
-
-            // Limpieza: Si tocas en cualquier espacio vacío del móvil, la burbuja amarilla desaparece y se cierra el tooltip
-            document.addEventListener('touchstart', (e) => {
-                if (!e.target.closest('.verse-text-span')) {
-                    document.querySelectorAll('.force-yellow').forEach(el => el.classList.remove('force-yellow'));
-                    window._hideFloatTip();
-                    currentTooltipTarget = null;
-                }
-            }, { passive: true });
         };
 
         const nav = (t, off) => {
@@ -1015,7 +1188,13 @@ let currentTooltipTarget = null;
                             if (hasR) dotHTML += `<span class="has-persp-dot" style="background:#3498db;width:6px;height:6px;" title="Referencias cruzadas"></span>`;
 
                             span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${tooltipContent ? dotHTML + '<span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
-                            span.onclick = () => window.viewSingleVerse(v.id);
+                            if (tooltipContent) {
+                                span.dataset.tt = tooltipContent;
+                                span.addEventListener('mouseenter', window._showFloatTip);
+                                span.addEventListener('mousemove', window._positionFloatTip);
+                                span.addEventListener('mouseleave', window._hideFloatTip);
+                            }
+                            attachVerseTapBehavior(span, v.id);
                             
                             chapterBlock.appendChild(span);
                             
