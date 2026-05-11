@@ -1,4 +1,21 @@
 /** MOTOR DE VISTA */
+        window.formatVerseText = (text) => {
+            if (!text) return '';
+            return text.replace(/#([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]+)/g, '<span class="hashtag-link" style="color:var(--secondary);cursor:pointer;font-weight:bold;" onclick="event.stopPropagation(); window.goToTopic(\'$1\');">#$1</span>');
+        };
+        
+        window.goToTopic = (topic) => {
+            if(typeof switchTab !== 'undefined') switchTab('persp');
+            else if(window.switchTab) window.switchTab('persp');
+            setTimeout(() => {
+                const search = document.getElementById('w-search');
+                if (search) {
+                    search.value = topic;
+                    search.dispatchEvent(new KeyboardEvent('keyup', {'key':'Enter'}));
+                }
+            }, 150);
+        };
+
         const pushHistory = (fn, params) => {
             if (historyStack.length > 0) {
                 let last = historyStack[historyStack.length - 1];
@@ -83,8 +100,8 @@
                         <h2 style="margin:0;">${v.book} ${v.reference}</h2>
                         <button id="btn-ver-capitulo" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem;font-weight:bold;flex-shrink:0;">📖 Ver Capítulo</button>
                     </div>
-                    <p style="font-size:1.4rem; font-style:italic; margin-top:12px;">&ldquo;${v.text || ''}&rdquo;</p>
-                    ${v.tags && v.tags.length > 0 ? `<div class="verse-tags">${v.tags.map(t => `<span>#${t}</span>`).join('')}</div>` : ''}
+                    <p style="font-size:1.4rem; font-style:italic; margin-top:12px;">&ldquo;${window.formatVerseText(v.text)}&rdquo;</p>
+                    ${v.tags && v.tags.length > 0 ? `<div class="verse-tags">${v.tags.map(t => `<span class="hashtag-link" style="color:var(--secondary);cursor:pointer;font-weight:bold;" onclick="event.stopPropagation(); window.goToTopic('${t}');">#${t}</span>`).join(' ')}</div>` : ''}
                 </div>
                 <div id="v-sections">
                     ${v.base_perspectives ? `<h3 class="study-section-title">📚 Notas de Estudio <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">(libro/capítulo)</span></h3><div class="perspective-selector" id="b-btns"></div><div id="b-cont" class="perspective-content" style="display:none; border-color:var(--secondary);"></div>` : ''}
@@ -180,7 +197,7 @@
                         const row = document.createElement('div');
                         row.style.cssText = 'padding:5px 8px;margin:2px 0;border-radius:5px;cursor:pointer;background:#f8f9fa;border-left:3px solid var(--secondary);font-size:0.92rem;';
                         row.innerHTML = found
-                            ? `<b style="color:var(--secondary)">${ref}</b> — ${found.text}`
+                            ? `<b style="color:var(--secondary)">${ref}</b> — ${window.formatVerseText(found.text)}`
                             : `<b style="color:var(--secondary)">${ref}</b> <i style="opacity:0.5">(no cargado)</i>`;
                         row.onmouseenter = () => row.style.background = '#e8f4f8';
                         row.onmouseleave = () => row.style.background = '#f8f9fa';
@@ -552,7 +569,7 @@
                         const found = findVerseByRef(ref);
                         if (m[1] !== lastCrBook) { crHtml += `<br><b style="color:#aef;">${m[1]}</b>`; lastCrBook = m[1]; lastCrChap = null; }
                         if (m[2] !== lastCrChap) { crHtml += ` <i>Cap.${m[2]}</i>`; lastCrChap = m[2]; }
-                        crHtml += `<br><span style="font-size:0.85em;"><b>${m[3]}.</b> ${found ? found.text : ref}</span>`;
+                        crHtml += `<br><span style="font-size:0.85em;"><b>${m[3]}.</b> ${found ? window.formatVerseText(found.text) : ref}</span>`;
                     });
                     ttParts.push(crHtml);
                 }
@@ -574,7 +591,7 @@
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
-                span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${dot}`;
+                span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
@@ -803,7 +820,7 @@
                             }
 
                             let vNum = (v.reference && v.reference.includes(':')) ? v.reference.split(':')[1] : (v.reference || '');
-                            span.innerHTML = `<span class="verse-num">${vNum}</span>${v.text || ''} ${tooltipContent ? '<span class="has-persp-dot"></span><span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
+                            span.innerHTML = `<span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${tooltipContent ? '<span class="has-persp-dot"></span><span class="tooltiptext">'+tooltipContent+'</span>' : ''}`;
                             
                             span.onclick = () => window.viewSingleVerse(v.id);
                             divBlock.appendChild(span);
@@ -830,7 +847,7 @@
                             p.style.cursor = 'pointer';
                             p.style.padding = '5px';
                             p.style.borderBottom = '1px dashed #ccc';
-                            p.innerHTML = `<b>${v.book} ${v.reference}:</b> "${v.text}"`;
+                            p.innerHTML = `<b>${v.book} ${v.reference}:</b> "${window.formatVerseText(v.text)}"`;
                             p.onclick = () => window.viewSingleVerse(v.id);
                             divBlock.appendChild(p);
                         });

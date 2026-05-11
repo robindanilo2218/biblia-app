@@ -164,4 +164,30 @@
                     }
                 });
             }
+
+            // Fullscreen Toggle
+            const btnFs = document.getElementById('btn-fullscreen');
+            if (btnFs) {
+                btnFs.addEventListener('click', () => {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                        });
+                    } else {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        }
+                    }
+                });
+
+                document.addEventListener('fullscreenchange', () => {
+                    if (document.fullscreenElement) {
+                        btnFs.textContent = '[x]';
+                        btnFs.title = 'Salir de Pantalla Completa';
+                    } else {
+                        btnFs.textContent = '[ ]';
+                        btnFs.title = 'Pantalla Completa';
+                    }
+                });
+            }
         });

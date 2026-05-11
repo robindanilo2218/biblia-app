@@ -146,10 +146,44 @@
 
 /** BORRAR TODO */
         document.getElementById('btn-clear-db').onclick = () => {
-            if (confirm("¿Borrar todo el contenido local?")) {
-                if (!db) return;
-                let tx = db.transaction(['verses'], 'readwrite');
-                tx.objectStore('verses').clear();
-                tx.oncomplete = () => { localStorage.setItem('db_cleared', 'true'); location.reload(); };
+            const pin = prompt("⚠️ ZONA DE PELIGRO\nPara borrar la base de datos, ingrese el PIN de seguridad:");
+            if (pin !== "1234") {
+                if (pin !== null) alert("PIN incorrecto. Operación cancelada.");
+                return;
             }
+            if (!confirm("Se va a proceder a borrar toda la base de datos.\n¿Está seguro? Se generarán copias de seguridad automáticas antes de borrar.")) return;
+
+            toast("Generando backups...", true);
+            
+            // 1. Export Unified (Biblia + Estudio base)
+            const exportData = currentData.map(v => { let exp = { ...v }; delete exp.perspectives; delete exp.tags; return exp; });
+            const a1 = document.createElement('a'); 
+            a1.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData)); 
+            a1.download = "biblia_backup_unificada.json"; 
+            a1.click();
+
+            // 2. Export Personal Notes (Solo lo que tiene perspectivas, tags o refs cruzadas)
+            const personalNotes = currentData.filter(v => (v.perspectives && Object.keys(v.perspectives).length > 0) || (v.tags && v.tags.length > 0) || (v.cross_references && v.cross_references.length > 0))
+                .map(v => {
+                    let exp = { type: v.type, book: v.book, chapter: v.chapter, reference: v.reference, testament: v.testament, category: v.category };
+                    if (v.perspectives) exp.perspectives = v.perspectives;
+                    if (v.tags) exp.tags = v.tags;
+                    if (v.cross_references) exp.cross_references = v.cross_references;
+                    return exp;
+                });
+            
+            setTimeout(() => {
+                const a2 = document.createElement('a');
+                a2.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(personalNotes));
+                a2.download = "biblia_backup_mis_notas.json";
+                a2.click();
+                
+                // 3. Borrar de la base de datos (con leve retraso para que las descargas inicien)
+                setTimeout(() => {
+                    if (!db) return;
+                    let tx = db.transaction(['verses'], 'readwrite');
+                    tx.objectStore('verses').clear();
+                    tx.oncomplete = () => { localStorage.setItem('db_cleared', 'true'); location.reload(); };
+                }, 1000);
+            }, 500);
         };

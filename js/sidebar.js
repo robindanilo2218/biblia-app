@@ -174,7 +174,7 @@
                                             sp.className = 'verse-text-span';
                                             sp.dataset.ref = `${v.book} ${v.reference}`;
                                             const vn = (v.reference||'').split(':')[1] || '';
-                                            sp.innerHTML = `<span class="verse-num">${vn}</span>${v.text || ''}`;
+                                            sp.innerHTML = `<span class="verse-num">${vn}</span>${window.formatVerseText ? window.formatVerseText(v.text) : (v.text || '')}`;
                                             sp.onclick = () => window.viewSingleVerse(v.id);
                                             readText.appendChild(sp);
                                         });

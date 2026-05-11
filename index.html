@@ -23,7 +23,7 @@
             📖 Biblia de Estudio
         </h1>
         <div class="badges">
-            <span id="offline-badge" class="badge">Offline</span>
+            <button id="btn-fullscreen" style="background:transparent; border:1px solid rgba(255,255,255,0.5); color:white; padding:4px 10px; border-radius:5px; cursor:pointer; font-weight:bold; font-family:monospace; font-size:1rem; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='transparent'" title="Pantalla Completa">[ ]</button>
             <button id="install-btn"
                 style="display:none; background: var(--secondary); border:none; color:white; padding:4px 12px; border-radius:15px; cursor:pointer; font-weight:bold; font-size:0.8rem;">Instalar</button>
         </div>
@@ -42,13 +42,15 @@
             <div class="import-group" style="display: flex; flex-direction: row; justify-content: center; padding: 10px 0; gap: 20px; border-top: 1px solid #ccc; margin-top: 10px;">
                 <button id="btn-import-study" title="Importar Mis Notas" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📁</button>
                 <button id="btn-export-unified" title="Exportar Todo" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">💾</button>
-                <button id="btn-clear-db" title="Borrar Todo" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
                 <button id="btn-import" title="Cargar Otra Biblia" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📤</button>
                 <input type="file" id="file-import" accept=".json" style="display: none;">
                 <input type="file" id="file-import-study" accept=".json" style="display: none;">
             </div>
 
             <div id="sidebar-content"></div>
+            <div style="margin-top: auto; text-align: right; padding: 5px;">
+                <button id="btn-clear-db" title="Zona de Peligro: Borrar Base de Datos" style="background: transparent; border: none; font-size: 0.75rem; cursor: pointer; opacity: 0.3; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">🗑️ Borrar Todo</button>
+            </div>
         </aside>
 
         <section class="content">
