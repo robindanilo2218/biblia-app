@@ -271,28 +271,34 @@
             bottom: 18px;
             right: 18px;
             z-index: 210;
-            width: 54px;
-            height: 54px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             border: none;
             background: var(--secondary);
             color: white;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.22);
             cursor: pointer;
-            font-size: 1.35rem;
+            font-size: 1.15rem;
             font-weight: bold;
             display: none; /* se muestra via JS cuando hay trackerBar */
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s ease, background 0.2s ease;
+            /* Semi-transparente cuando está inactivo */
+            opacity: 0.45;
+            transition: transform 0.2s ease, background 0.2s ease, opacity 0.25s ease;
         }
 
-        #floating-read-btn:hover {
+        #floating-read-btn:hover,
+        #floating-read-btn:focus {
+            opacity: 1;
             transform: translateY(-2px);
         }
 
+        /* Completamente opaco cuando está reproduciendo */
         #floating-read-btn.active {
             background: #ff7043;
+            opacity: 1;
         }
 
         /* Menú popup del botón flotante (long-press) */
@@ -626,14 +632,31 @@
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        /* Versículo ya leído — rosado suave */
+        /* Versículo ya leído — rosado suave (1 vez) */
         .verse-text-span.already-read {
             background-color: #fce4ec;
             border-left: 3px solid #f48fb1;
             padding-left: 4px;
+            transition: background-color 0.4s ease, border-left-color 0.4s ease;
         }
-        /* Si está activo Y ya leído, el azul prevalece */
-        .verse-text-span.active-reading.already-read {
+        /* Leído 2 veces — verde suave */
+        .verse-text-span.read-twice {
+            background-color: #e8f5e9;
+            border-left: 3px solid #81c784;
+            padding-left: 4px;
+            transition: background-color 0.4s ease, border-left-color 0.4s ease;
+        }
+        /* Leído 3+ veces — ámbar dorado */
+        .verse-text-span.read-thrice {
+            background-color: #fff8e1;
+            border-left: 3px solid #ffd54f;
+            padding-left: 4px;
+            transition: background-color 0.4s ease, border-left-color 0.4s ease;
+        }
+        /* Si está activo, el azul siempre prevalece sobre cualquier conteo */
+        .verse-text-span.active-reading.already-read,
+        .verse-text-span.active-reading.read-twice,
+        .verse-text-span.active-reading.read-thrice {
             background-color: #e1f5fe;
             border-left: 3px solid #03a9f4;
         }

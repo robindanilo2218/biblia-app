@@ -287,11 +287,25 @@
                                 draftDiv.innerHTML =
                                     `<div style="background:#fff3cd;padding:10px;border-radius:7px;border-left:4px solid #ffc107;font-size:0.9rem;">`+
                                     `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`+
-                                    `<b style="color:#856404;">📝 En construcción (${draftRefs.length})</b>`+
+                                    `<b style="color:#856404;cursor:pointer;" id="btn-preview-draft-ses">📝 En construcción (${draftRefs.length}) — <u style="font-weight:normal;">ver previa</u></b>`+
                                     `<div style="display:flex;gap:5px;">`+
+                                    `<button id="btn-preview-draft-ses-btn" style="padding:4px 9px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">👁 Ver</button>`+
                                     `<button id="btn-edit-draft-ses" style="padding:4px 9px;background:var(--primary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">✏️ Editar</button>`+
                                     `<button id="btn-clear-draft-ses" style="padding:4px 9px;background:#e74c3c;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">🗑 Limpiar</button>`+
                                     `</div></div><div id="draft-ses-ref-list">${listHtml}</div></div>`;
+                                const showDraftPreview = () => {
+                                    const draftSession = {
+                                        id: 'draft_preview',
+                                        title: '📝 Borrador (sin guardar)',
+                                        date: new Date().toLocaleDateString('es', {weekday:'long', year:'numeric', month:'long', day:'numeric'}),
+                                        refs: draftRefs.join('\n'),
+                                        showStudy: true
+                                    };
+                                    if (window.viewSession) window.viewSession(draftSession);
+                                    if (typeof closeSidebar === 'function') closeSidebar();
+                                };
+                                draftDiv.querySelector('#btn-preview-draft-ses').onclick = showDraftPreview;
+                                draftDiv.querySelector('#btn-preview-draft-ses-btn').onclick = showDraftPreview;
                                 draftDiv.querySelector('#btn-edit-draft-ses').onclick = () => window.openSessionEditor();
                                 draftDiv.querySelector('#btn-clear-draft-ses').onclick = () => {
                                     if (confirm('¿Limpiar el borrador?')) {
@@ -391,10 +405,12 @@
 
                             document.getElementById('btn-save-session').onclick = () => {
                                 let d = document.getElementById('ses-date').value;
-                                let t = document.getElementById('ses-title').value;
+                                let t = document.getElementById('ses-title').value.trim();
                                 let r = document.getElementById('ses-refs').value;
                                 let sh = document.getElementById('ses-show-study').checked;
-                                if(!d || !t) return alert("La fecha y el título son obligatorios.");
+                                // Valores por defecto si no se especifican
+                                if (!d) d = new Date().toISOString().split('T')[0];
+                                if (!t) t = 'Sin título — ' + new Date().toLocaleDateString('es');
                                 
                                 let sessions = JSON.parse(localStorage.getItem('biblia_sessions') || '[]');
                                 let newSession = { id: sId, date: d, title: t, refs: r, showStudy: sh };
@@ -447,12 +463,26 @@
                                 draftDiv.innerHTML =
                                     `<div style="background:#fff3cd;padding:10px;border-radius:7px;border-left:4px solid #ffc107;font-size:0.9rem;">`+
                                     `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`+
-                                    `<b style="color:#856404;">📎 En construcción (${draftRefs.length})</b>`+
+                                    `<b style="color:#856404;cursor:pointer;" id="btn-preview-draft-clip">📎 En construcción (${draftRefs.length}) — <u style="font-weight:normal;">ver previa</u></b>`+
                                     `<div style="display:flex;gap:5px;">`+
+                                    `<button id="btn-preview-draft-clip-btn" style="padding:4px 9px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">👁 Ver</button>`+
                                     `<button id="btn-copy-draft-clip" style="padding:4px 9px;background:var(--secondary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">📋 Copiar todo</button>`+
                                     `<button id="btn-edit-draft-clip" style="padding:4px 9px;background:var(--primary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">✏️ Guardar</button>`+
                                     `<button id="btn-clear-draft-clip" style="padding:4px 9px;background:#e74c3c;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">🗑 Limpiar</button>`+
                                     `</div></div><div id="draft-clip-ref-list">${listHtml}</div></div>`;
+                                const showClipPreview = () => {
+                                    const draftClip = {
+                                        id: 'draft_clip_preview',
+                                        title: '📎 Portapapeles (borrador)',
+                                        date: new Date().toLocaleDateString('es', {weekday:'long', year:'numeric', month:'long', day:'numeric'}),
+                                        refs: draftRefs.join('\n'),
+                                        textsMap: textsMap
+                                    };
+                                    if (window.viewClipboard) window.viewClipboard(draftClip);
+                                    if (typeof closeSidebar === 'function') closeSidebar();
+                                };
+                                draftDiv.querySelector('#btn-preview-draft-clip').onclick = showClipPreview;
+                                draftDiv.querySelector('#btn-preview-draft-clip-btn').onclick = showClipPreview;
                                 draftDiv.querySelector('#btn-copy-draft-clip').onclick = () => {
                                     // Copiar con texto completo si disponible
                                     const lines = draftRefs.map(r => textsMap[r] || r);
@@ -461,6 +491,7 @@
                                 };
                                 draftDiv.querySelector('#btn-edit-draft-clip').onclick = () => window.openClipboardEditor();
                                 draftDiv.querySelector('#btn-clear-draft-clip').onclick = () => {
+
                                     if (confirm('¿Limpiar el borrador de portapapeles?')) {
                                         localStorage.removeItem('biblia_draft_clipboard_refs');
                                         localStorage.removeItem('biblia_draft_clipboard_texts');

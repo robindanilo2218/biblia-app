@@ -5,12 +5,13 @@ let currentActiveVerse = null;
 let activeReadTimer = null;
 let activeReadRef = null;
 let activeReadText = '';
-const VERSE_READ_DELAY = 2200;
+const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
 
         window.formatVerseText = (text) => {
             if (!text) return '';
             return text.replace(/#([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]+)/g, '<span class="hashtag-link" style="color:var(--secondary);cursor:pointer;font-weight:bold;" onclick="event.stopPropagation(); window.goToTopic(\'$1\');">#$1</span>');
         };
+
         
         window.goToTopic = (topic) => {
             if(typeof switchTab !== 'undefined') switchTab('persp');
@@ -26,7 +27,7 @@ const VERSE_READ_DELAY = 2200;
 
         let autoReadingTimer = null;
         let autoReadingSpeedKey = 'normal';
-        let autoReadingSpeedValue = 2200;
+        let autoReadingSpeedValue = 4000;
         let autoReadingFontSizeKey = 'normal';
         let autoReadingFontSizeValue = 1.5;
         let autoReadingActive = false;
@@ -35,12 +36,13 @@ const VERSE_READ_DELAY = 2200;
         let speechUtterance = null;
         const speechSupported = typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
         const AUTO_READING_SPEEDS = {
-            'muy-lento': { label: 'Muy lento', value: 4500, speechRate: 0.75 },
-            'lento': { label: 'Lento', value: 3200, speechRate: 0.9 },
-            'normal': { label: 'Normal', value: 2200, speechRate: 1 },
-            'rapido': { label: 'Rápido', value: 1500, speechRate: 1.2 },
-            'muy-rapido': { label: 'Muy rápido', value: 900, speechRate: 1.35 }
+            'muy-lento':  { label: 'Muy lento',  value: 9000,  speechRate: 0.6  },
+            'lento':      { label: 'Lento',       value: 6000,  speechRate: 0.8  },
+            'normal':     { label: 'Normal',      value: 4000,  speechRate: 1    },
+            'rapido':     { label: 'Rápido',      value: 2500,  speechRate: 1.2  },
+            'muy-rapido': { label: 'Muy rápido',  value: 1400,  speechRate: 1.35 }
         };
+
         const AUTO_READING_FONT_SIZES = {
             'normal': { label: 'Normal', value: 1 },
             'x1.5': { label: '1.5×', value: 1.5 },
@@ -82,7 +84,7 @@ const VERSE_READ_DELAY = 2200;
             const buildMenu = () => {
                 menu.innerHTML = '';
 
-                // Sección velocidad
+                // ── Velocidad de lectura ──────────────────────────────────────────────
                 const tSpeed = document.createElement('div');
                 tSpeed.className = 'fpm-section-title'; tSpeed.textContent = '⏱ Velocidad de lectura';
                 menu.appendChild(tSpeed);
@@ -93,16 +95,80 @@ const VERSE_READ_DELAY = 2200;
                     b.addEventListener('pointerup', (e) => {
                         e.stopPropagation();
                         window.setReadingAutoSpeed(key);
-                        buildMenu(); // refrescar checks
+                        buildMenu();
                     });
                     menu.appendChild(b);
                 });
 
-                // Divisor
+                // ── Tamaño de letra ──────────────────────────────────────────────────
+                const div0 = document.createElement('div'); div0.className = 'fpm-divider';
+                menu.appendChild(div0);
+                const tFont = document.createElement('div');
+                tFont.className = 'fpm-section-title';
+                // Obtener tamaño actual
+                const FONT_STEPS = [80, 90, 100, 115, 130, 150, 175, 200]; // %
+                const LS_FONT_KEY = 'biblia_reading_font_pct';
+                const getCurrentFontPct = () => parseInt(localStorage.getItem(LS_FONT_KEY) || '100');
+                const applyFont = (pct) => {
+                    const container = document.getElementById('read-text') ||
+                                     document.getElementById('session-read-text') ||
+                                     document.getElementById('clipboard-read-text') ||
+                                     document.getElementById('scrollable-content');
+                    if (container) container.style.fontSize = pct + '%';
+                    localStorage.setItem(LS_FONT_KEY, String(pct));
+                    tFont.textContent = '🔡 Letra: ' + pct + '%';
+                };
+                const curPct = getCurrentFontPct();
+                tFont.textContent = '🔡 Letra: ' + curPct + '%';
+                menu.appendChild(tFont);
+
+                const fontRow = document.createElement('div');
+                fontRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:4px 14px 8px;gap:8px;';
+
+                const bFontDown = document.createElement('button');
+                bFontDown.className = 'fpm-btn';
+                bFontDown.style.cssText = 'font-size:1.15rem;font-weight:bold;padding:6px 14px;flex:1;justify-content:center;border-radius:8px;';
+                bFontDown.textContent = 'A⁻';
+                bFontDown.title = 'Reducir letra';
+                bFontDown.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    const cur = getCurrentFontPct();
+                    const idx = FONT_STEPS.indexOf(cur);
+                    const next = idx > 0 ? FONT_STEPS[idx - 1] : FONT_STEPS[0];
+                    applyFont(next);
+                });
+
+                const bFontReset = document.createElement('button');
+                bFontReset.className = 'fpm-btn';
+                bFontReset.style.cssText = 'font-size:0.85rem;padding:6px 10px;flex:1;justify-content:center;border-radius:8px;opacity:0.65;';
+                bFontReset.textContent = 'A';
+                bFontReset.title = 'Tamaño normal';
+                bFontReset.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    applyFont(100);
+                });
+
+                const bFontUp = document.createElement('button');
+                bFontUp.className = 'fpm-btn';
+                bFontUp.style.cssText = 'font-size:1.45rem;font-weight:bold;padding:6px 14px;flex:1;justify-content:center;border-radius:8px;';
+                bFontUp.textContent = 'A⁺';
+                bFontUp.title = 'Aumentar letra';
+                bFontUp.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    const cur = getCurrentFontPct();
+                    const idx = FONT_STEPS.indexOf(cur);
+                    const next = idx < FONT_STEPS.length - 1 ? FONT_STEPS[idx + 1] : FONT_STEPS[FONT_STEPS.length - 1];
+                    applyFont(next);
+                });
+
+                fontRow.appendChild(bFontDown);
+                fontRow.appendChild(bFontReset);
+                fontRow.appendChild(bFontUp);
+                menu.appendChild(fontRow);
+
+                // ── Voz ──────────────────────────────────────────────────────────────
                 const div1 = document.createElement('div'); div1.className = 'fpm-divider';
                 menu.appendChild(div1);
-
-                // Sección voz
                 const tVoice = document.createElement('div');
                 tVoice.className = 'fpm-section-title'; tVoice.textContent = '🔊 Leer en voz alta';
                 menu.appendChild(tVoice);
@@ -116,6 +182,7 @@ const VERSE_READ_DELAY = 2200;
                 });
                 menu.appendChild(bVoice);
             };
+
 
             const openMenu = () => {
                 buildMenu();
@@ -199,6 +266,12 @@ const VERSE_READ_DELAY = 2200;
             let next = visibleSpans[0];
             if (current) {
                 const index = visibleSpans.indexOf(current);
+                // Marcar el verso actual como leido ANTES de avanzar
+                if (current.dataset.ref) {
+                    const verseText = current.dataset.verseText || current.textContent || '';
+                    window.markVerseAsRead(current.dataset.ref, verseText);
+                    current.classList.add('already-read');
+                }
                 if (index >= 0 && index < visibleSpans.length - 1) {
                     next = visibleSpans[index + 1];
                 } else {
@@ -207,11 +280,15 @@ const VERSE_READ_DELAY = 2200;
             }
             visibleSpans.forEach(span => span.classList.remove('active-reading'));
             next.classList.add('active-reading');
-            next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            currentActiveVerse = next; // mantener sincronizado para el observer
+            // Scroll suave: 'nearest' minimiza el desplazamiento y reduce interferencia del observer
+            next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             if (window.globalUpdateTracker) window.globalUpdateTracker(next.dataset.ref, next.dataset.version);
             if (autoReadingTimer) clearTimeout(autoReadingTimer);
             autoReadingTimer = setTimeout(window.advanceReadingAutoPlay, autoReadingSpeedValue);
         };
+
+
 
         window.startReadingAutoPlay = () => {
             if (autoReadingActive) return;
@@ -880,6 +957,40 @@ const VERSE_READ_DELAY = 2200;
                 if (!match) return;
                 window.currentTrackerRef = { book: match[1], chapter: parseInt(match[2]), verse: parseInt(match[3]), version: version || (window.currentTrackerRef && window.currentTrackerRef.version) || null };
 
+                // ── Timer de lectura: marcar como leído tras tiempo proporcional ──────────
+                // Se dispara para CUALQUIER tipo de navegación (scroll, clic, botones, auto-play)
+                if (!autoReadingActive) { // durante auto-play, advanceReadingAutoPlay ya lo gestiona
+                    if (activeReadTimer) { clearTimeout(activeReadTimer); activeReadTimer = null; }
+                    const nowRef = refStr;
+                    // Buscar el verso en el DOM para obtener su texto
+                    const readText = document.getElementById('read-text');
+                    const spanEl = readText ? readText.querySelector(`[data-ref="${CSS.escape(nowRef)}"]`) : null;
+                    const verseText = (spanEl && spanEl.dataset.verseText) || '';
+                    // Calcular delay basado en palabras (200 WPM promedio)
+                    const wordCount = verseText ? verseText.split(/\s+/).filter(w => w).length : 0;
+                    const msPerWord = 60000 / 200; // 200 palabras por minuto
+                    const wordDelay = wordCount > 0 ? Math.round(wordCount * msPerWord) : VERSE_READ_DELAY;
+                    // Clamp: mínimo 2s, máximo el valor de velocidad actual (o 12s si no hay auto-play)
+                    const maxDelay = autoReadingSpeedValue || 12000;
+                    const readDelay = Math.min(Math.max(wordDelay, 2000), maxDelay);
+                    activeReadRef  = nowRef;
+                    activeReadText = verseText;
+                    activeReadTimer = setTimeout(() => {
+                        if (window.markVerseAsRead && activeReadRef === nowRef) {
+                            window.markVerseAsRead(nowRef, activeReadText);
+                            // Aplicar rosa al span en el DOM
+                            if (spanEl) spanEl.classList.add('already-read');
+                            // También si hay currentActiveVerse actualizar
+                            if (currentActiveVerse && currentActiveVerse.dataset.ref === nowRef) {
+                                currentActiveVerse.classList.add('already-read');
+                            }
+                        }
+                        activeReadTimer = null;
+                    }, readDelay);
+                }
+                // ─────────────────────────────────────────────────────────────────────────
+
+
                 // Calcular límites dinámicos para el libro/capítulo actual
                 const allVerses = currentData.filter(x => x.type === 'verse' && x.text);
                 const bReal = normalizeBookName(match[1]);
@@ -1085,10 +1196,20 @@ const VERSE_READ_DELAY = 2200;
             readingObserver = new IntersectionObserver(es => {
                 if (window.manualHighlightMode) return;
                 if (isTyping) return;
+                // Cuando el auto-play está activo, el observer solo actualiza
+                // el set de versículos visibles pero NO toca active-reading
+                // (eso es responsabilidad exclusiva de advanceReadingAutoPlay)
                 es.forEach(e => {
                     if (e.isIntersecting) currentlyVisibleVerses.add(e.target);
-                    else { currentlyVisibleVerses.delete(e.target); e.target.classList.remove('active-reading'); }
+                    else {
+                        currentlyVisibleVerses.delete(e.target);
+                        // Solo quitar active-reading por scroll si NO está en auto-play
+                        if (!autoReadingActive) e.target.classList.remove('active-reading');
+                    }
                 });
+
+                // Saltar toda la lógica de selección durante auto-play
+                if (autoReadingActive) return;
 
                 const activeVerse = pickActiveVerse();
 
@@ -1099,26 +1220,15 @@ const VERSE_READ_DELAY = 2200;
                 if (activeVerse && currentActiveVerse !== activeVerse) {
                     activeVerse.classList.add('active-reading');
                     currentActiveVerse = activeVerse;
-                    if(window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
-                    if (activeReadTimer) {
-                        clearTimeout(activeReadTimer);
-                        activeReadTimer = null;
-                    }
-                    activeReadRef = activeVerse.dataset.ref;
-                    activeReadText = activeVerse.textContent;
-                    activeReadTimer = setTimeout(() => {
-                        if (window.markVerseAsRead && activeReadRef) {
-                            window.markVerseAsRead(activeReadRef, activeReadText);
-                        }
-                        activeReadTimer = null;
-                    }, VERSE_READ_DELAY);
+                    // globalUpdateTracker centraliza el timer de lectura
+                    if (window.globalUpdateTracker) window.globalUpdateTracker(activeVerse.dataset.ref, activeVerse.dataset.version);
+
                 } else if (!activeVerse) {
                     currentActiveVerse = null;
-                    if (activeReadTimer) {
-                        clearTimeout(activeReadTimer);
-                        activeReadTimer = null;
-                    }
+                    // Cancelar timer si no hay versículo activo
+                    if (activeReadTimer) { clearTimeout(activeReadTimer); activeReadTimer = null; }
                 }
+
             }, {
                 root: scrollRoot2 || null,
                 rootMargin: '0px',
@@ -1128,7 +1238,13 @@ const VERSE_READ_DELAY = 2200;
             // Renderizar versículos con separadores libro/capítulo en vistas multi-capítulo
             const isMultiCap = (target.type !== 'chapter');
             let lastBook = null, lastChap = null;
+            // Pre-cargar conteos de lectura para aplicar colores (una sola lectura de localStorage)
+            const readCounts = JSON.parse(localStorage.getItem('biblia_read_counts') || '{}');
+            // Aplicar tamaño de letra guardado
+            const savedFontPct = parseInt(localStorage.getItem('biblia_reading_font_pct') || '100');
+            if (savedFontPct !== 100 && readText) readText.style.fontSize = savedFontPct + '%';
             verses.forEach(v => {
+
                 const vChap = v.chapter || (v.reference||'').split(':')[0];
                 // Separador libro
                 if (isMultiCap && v.book !== lastBook) {
@@ -1211,12 +1327,14 @@ const VERSE_READ_DELAY = 2200;
                 span.className = 'verse-text-span';
                 span.dataset.ref = `${v.book} ${v.reference}`;
                 span.dataset.version = v.version || '';
-                span.dataset.verseText = v.text || ''; // para copiar con texto
+                span.dataset.verseText = v.text || '';
                 if (tt) span.dataset.tt = tt;
-                // Marcar rosa si ya fue leído
+                // Aplicar clase según cuántas veces se leyó
                 const verseFullRef = `${v.book} ${v.reference}`;
-                const readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
-                if (readSet.has(verseFullRef)) span.classList.add('already-read');
+                const vReadCount = (readCounts[verseFullRef] || 0);
+                const vReadCls = window.getReadClass ? window.getReadClass(vReadCount) : (vReadCount > 0 ? 'already-read' : '');
+                if (vReadCls) span.classList.add(vReadCls);
+
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
@@ -1353,6 +1471,13 @@ const VERSE_READ_DELAY = 2200;
                 let { book, chapter, verse } = window.currentTrackerRef;
                 let bIdx = BIBLE_BOOKS.indexOf(normalizeBookName(book));
                 if (bIdx === -1) return;
+
+                // Al ir hacia atrás en versos, desmarcar el verso ACTUAL como leído
+                if (type === 'verse' && dir === -1 && window.currentTrackerRef) {
+                    const curRef = `${book} ${chapter}:${verse}`;
+                    if (window.unmarkVerseRead) window.unmarkVerseRead(curRef);
+                }
+
                 if (type === 'book') {
                     bIdx += dir;
                     if (bIdx < 0 || bIdx >= BIBLE_BOOKS.length) return;
@@ -1362,9 +1487,10 @@ const VERSE_READ_DELAY = 2200;
                 } else if (type === 'verse') {
                     verse += dir;
                 }
-                window.navToBCV(book, chapter, verse, true); // sequential=true
+                window.navToBCV(book, chapter, verse, true);
             } catch(e) { console.error('navTracker', e); }
         };
+
 
         window.navToBCV = (bName, cNum, vNum, sequential = false) => {
             try {
@@ -1589,28 +1715,28 @@ const VERSE_READ_DELAY = 2200;
                     const chap = m[2];
                     const start = m[3] ? parseInt(m[3]) : null;
                     const end = m[4] ? parseInt(m[4]) : null;
-                    if (start && end) {
-                        return { type: 'range', book, chap, start, end };
-                    }
-                    if (start) {
-                        return { type: 'verse', book, chap, verse: start };
-                    }
+                    if (start && end) return { type: 'range', book, chap, start, end };
+                    if (start)        return { type: 'verse', book, chap, verse: start };
                     return { type: 'chapter', book, chap };
                 }
                 const bookOnly = refStr.trim();
-                if (bookOnly) {
-                    return { type: 'book', book: normalizeBookName(bookOnly) };
-                }
+                if (bookOnly) return { type: 'book', book: normalizeBookName(bookOnly) };
                 return null;
             };
+            const textsMapFallback = clipboard.textsMap || JSON.parse(localStorage.getItem('biblia_draft_clipboard_texts') || '{}');
 
             const lines = clipboard.refs.split(/[,;\n]/).map(x => x.trim()).filter(x => x);
+
             lines.forEach(line => {
                 const parsed = findVerseByRef(line);
                 if (!parsed) {
                     const infoBlock = document.createElement('div');
                     infoBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#fff3cd; border-radius:8px; color:#856404;';
-                    infoBlock.textContent = `No se pudo interpretar: ${line}`;
+                    // Mostrar texto guardado si está disponible
+                    const savedText = textsMapFallback[line];
+                    infoBlock.innerHTML = savedText
+                        ? `<b>${line}</b><br><span style="font-size:0.92rem;">${savedText}</span>`
+                        : `No se pudo interpretar: ${line}`;
                     readText.appendChild(infoBlock);
                     return;
                 }
@@ -1647,7 +1773,14 @@ const VERSE_READ_DELAY = 2200;
                 if (verses.length === 0) {
                     const emptyBlock = document.createElement('div');
                     emptyBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#fdecea; border-radius:8px; color:#c0392b;';
-                    emptyBlock.textContent = message || `No se encontraron versículos para ${line}`;
+                    // Si hay texto guardado en el mapa del borrador, mostrarlo
+                    const savedText = textsMapFallback[line];
+                    if (savedText) {
+                        emptyBlock.style.cssText = 'margin-bottom:15px; padding:12px; background:#f0f7ff; border-radius:8px; color:#1a3c6e;';
+                        emptyBlock.innerHTML = `<b>📌 ${line}</b><br><span style="font-size:0.93rem; line-height:1.5;">${savedText}</span>`;
+                    } else {
+                        emptyBlock.textContent = message || `No se encontraron versículos para ${line}`;
+                    }
                     readText.appendChild(emptyBlock);
                     return;
                 }
@@ -1671,11 +1804,18 @@ const VERSE_READ_DELAY = 2200;
                 readText.appendChild(section);
             });
 
+            // Copiar todo — incluye textos si están disponibles
             const copyBtn = document.getElementById('btn-copy-clipboard-all');
-            if (copyBtn) copyBtn.onclick = () => window.copyClipboardRefs(clipboard);
+            if (copyBtn) copyBtn.onclick = () => {
+                const allLines = lines.map(r => textsMapFallback[r] ? `${r}\n${textsMapFallback[r]}` : r);
+                window.copyTextToClipboard(allLines.join('\n\n'))
+                    .then(() => { if (window.toast) window.toast('📋 Copiado con texto al portapapeles', false); })
+                    .catch(() => {});
+            };
         };
 
         window.viewSession = (session, fromHistory = false) => {
+
             if (!fromHistory) pushHistory('viewSession', [session]);
             if (!mainView) return;
             mainView.innerHTML = `
@@ -1838,39 +1978,89 @@ const VERSE_READ_DELAY = 2200;
             setEditor({ type: 'session_note', id: session.id }, "Añadir nota general a la sesión...");
         };
 
-        window.markVerseAsRead = (ref, textStr = '') => {
-            if(!ref) return;
-            let readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
-            if(!readSet.has(ref)) {
-                readSet.add(ref);
-                localStorage.setItem('biblia_read_verses', JSON.stringify([...readSet]));
+        // Helper: clase CSS según número de lecturas
+        window.getReadClass = (count) => {
+            if (!count || count <= 0) return '';
+            if (count === 1) return 'already-read';
+            if (count === 2) return 'read-twice';
+            return 'read-thrice';
+        };
+        const applyReadClass = (el, count) => {
+            if (!el) return;
+            el.classList.remove('already-read', 'read-twice', 'read-thrice');
+            const cls = window.getReadClass(count);
+            if (cls) el.classList.add(cls);
+        };
+        const getSpanByRef = (ref) => {
+            const rt = document.getElementById('read-text');
+            return rt ? rt.querySelector(`[data-ref="${CSS.escape(ref)}"]`) : null;
+        };
 
+        window.markVerseAsRead = (ref, textStr = '') => {
+            if (!ref) return;
+            let counts = JSON.parse(localStorage.getItem('biblia_read_counts') || '{}');
+            const prevCount = counts[ref] || 0;
+            const newCount = prevCount + 1;
+            counts[ref] = newCount;
+            localStorage.setItem('biblia_read_counts', JSON.stringify(counts));
+
+            // Mantener set legado para barra de progreso
+            let readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
+            readSet.add(ref);
+            localStorage.setItem('biblia_read_verses', JSON.stringify([...readSet]));
+
+            // Historial solo en la primera lectura
+            if (prevCount === 0) {
                 let history = JSON.parse(localStorage.getItem('biblia_history') || '[]');
                 history = history.filter(x => x.ref !== ref);
-                history.unshift({ref: ref, date: new Date().toISOString(), snippet: textStr.substring(0, 50) + '...'});
-                if(history.length > 200) history.pop();
+                history.unshift({ ref, date: new Date().toISOString(), snippet: (textStr || '').substring(0, 50) + '...' });
+                if (history.length > 200) history.pop();
                 localStorage.setItem('biblia_history', JSON.stringify(history));
-
-                // Aplicar clase rosa al elemento visible en el DOM
-                const readText = document.getElementById('read-text');
-                if (readText) {
-                    const el = readText.querySelector(`[data-ref="${CSS.escape(ref)}"]`);
-                    if (el) el.classList.add('already-read');
-                }
-
-                // Actualizar barra de progreso si está visible
-                let pBar = document.querySelector('#sidebar-content > div:first-child');
-                if (pBar && pBar.innerText.includes('Progreso')) {
-                    let totalVerses = currentData.filter(x => x.type === 'verse' && x.text).length;
-                    let percent = totalVerses > 0 ? (readSet.size / totalVerses * 100).toFixed(2) : 0;
-                    const s2 = pBar.querySelector('div > span:nth-child(2)');
-                    const bar = pBar.querySelector('div:nth-child(2) > div');
-                    const s3 = pBar.querySelector('div:nth-child(3)');
-                    if(s2) s2.innerText = percent + '%';
-                    if(bar) bar.style.width = percent + '%';
-                    if(s3) s3.innerText = `${readSet.size} / ${totalVerses} versículos leídos`;
-                }
             }
+
+            // Aplicar clase al DOM
+            applyReadClass(getSpanByRef(ref), newCount);
+            if (currentActiveVerse && currentActiveVerse.dataset.ref === ref) {
+                applyReadClass(currentActiveVerse, newCount);
+            }
+
+            // Barra de progreso
+            let pBar = document.querySelector('#sidebar-content > div:first-child');
+            if (pBar && pBar.innerText.includes('Progreso')) {
+                let totalVerses = currentData.filter(x => x.type === 'verse' && x.text).length;
+                let percent = totalVerses > 0 ? (readSet.size / totalVerses * 100).toFixed(2) : 0;
+                const s2 = pBar.querySelector('div > span:nth-child(2)');
+                const bar = pBar.querySelector('div:nth-child(2) > div');
+                const s3 = pBar.querySelector('div:nth-child(3)');
+                if (s2) s2.innerText = percent + '%';
+                if (bar) bar.style.width = percent + '%';
+                if (s3) s3.innerText = `${readSet.size} / ${totalVerses} versículos leídos`;
+            }
+        };
+
+        window.unmarkVerseRead = (ref) => {
+            if (!ref) return;
+            let counts = JSON.parse(localStorage.getItem('biblia_read_counts') || '{}');
+            const prevCount = counts[ref] || 0;
+            if (prevCount <= 0) return;
+            const newCount = prevCount - 1;
+            if (newCount === 0) {
+                delete counts[ref];
+                let readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
+                readSet.delete(ref);
+                localStorage.setItem('biblia_read_verses', JSON.stringify([...readSet]));
+            } else {
+                counts[ref] = newCount;
+            }
+            localStorage.setItem('biblia_read_counts', JSON.stringify(counts));
+
+            // Actualizar DOM
+            applyReadClass(getSpanByRef(ref), newCount);
+            if (currentActiveVerse && currentActiveVerse.dataset.ref === ref) {
+                applyReadClass(currentActiveVerse, newCount);
+            }
+            const label = newCount === 0 ? 'sin leer' : `${newCount}× leído`;
+            if (window.toast) window.toast(`↩ ${ref} — ${label}`, false);
         };
 
 
