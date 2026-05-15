@@ -279,14 +279,36 @@
                         let draftDiv = document.getElementById('draft-session-info');
                         if (draftDiv) {
                             if (draftRefs.length > 0) {
-                                draftDiv.innerHTML = `<div style="background:#fff3cd; padding:10px; border-radius:5px; border-left:4px solid #ffc107; cursor:pointer; font-size:0.9rem;">
-                                    <b style="color:#856404;">📝 Sesión en Construcción</b><br>
-                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Clic para editar.</span>
-                                </div>`;
-                                draftDiv.onclick = () => window.openSessionEditor();
+                                const listHtml = draftRefs.map((r, i) =>
+                                    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:0.82rem;border-bottom:1px solid rgba(133,100,4,0.15);">`+
+                                    `<span>📌 ${r}</span>`+
+                                    `<button data-idx="${i}" class="btn-rm-draft-ses" style="border:none;background:none;cursor:pointer;color:#c0392b;font-size:0.9rem;padding:0 4px;">✖</button></div>`
+                                ).join('');
+                                draftDiv.innerHTML =
+                                    `<div style="background:#fff3cd;padding:10px;border-radius:7px;border-left:4px solid #ffc107;font-size:0.9rem;">`+
+                                    `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`+
+                                    `<b style="color:#856404;">📝 En construcción (${draftRefs.length})</b>`+
+                                    `<div style="display:flex;gap:5px;">`+
+                                    `<button id="btn-edit-draft-ses" style="padding:4px 9px;background:var(--primary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">✏️ Editar</button>`+
+                                    `<button id="btn-clear-draft-ses" style="padding:4px 9px;background:#e74c3c;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">🗑 Limpiar</button>`+
+                                    `</div></div><div id="draft-ses-ref-list">${listHtml}</div></div>`;
+                                draftDiv.querySelector('#btn-edit-draft-ses').onclick = () => window.openSessionEditor();
+                                draftDiv.querySelector('#btn-clear-draft-ses').onclick = () => {
+                                    if (confirm('¿Limpiar el borrador?')) {
+                                        localStorage.removeItem('biblia_draft_refs');
+                                        renderSessions();
+                                    }
+                                };
+                                draftDiv.querySelectorAll('.btn-rm-draft-ses').forEach(btn => {
+                                    btn.onclick = (e) => {
+                                        e.stopPropagation();
+                                        draftRefs.splice(parseInt(btn.dataset.idx), 1);
+                                        localStorage.setItem('biblia_draft_refs', JSON.stringify(draftRefs));
+                                        renderSessions();
+                                    };
+                                });
                             } else {
                                 draftDiv.innerHTML = '';
-                                draftDiv.onclick = null;
                             }
                         }
 
@@ -295,16 +317,15 @@
                         list.innerHTML = '';
                         sessions.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach((s, idx) => {
                             let d = document.createElement('div');
-                            d.style = "display:flex; justify-content:space-between; background:#e8f4f8; padding:10px; border-radius:5px; cursor:pointer; border-left:4px solid var(--primary);";
-                            d.innerHTML = `<div style="flex:1;"><b>${s.date}</b><br><span style="font-size:0.9rem;">${s.title}</span></div><button class="btn-edit-ses" style="border:none; background:none; cursor:pointer; color:var(--secondary); font-size:1.1rem; margin-right:5px;" title="Editar sesión">✏️</button><button class="btn-del-ses" style="border:none; background:none; cursor:pointer; color:red; font-size:1.1rem;" title="Eliminar sesión">✖</button>`;
+                            d.style = "display:flex;justify-content:space-between;background:#e8f4f8;padding:10px;border-radius:5px;cursor:pointer;border-left:4px solid var(--primary);";
+                            d.innerHTML = `<div style="flex:1;"><b>${s.date}</b><br><span style="font-size:0.9rem;">${s.title}</span></div>`+
+                                `<button class="btn-edit-ses" style="border:none;background:none;cursor:pointer;color:var(--secondary);font-size:1.1rem;margin-right:5px;" title="Editar">✏️</button>`+
+                                `<button class="btn-del-ses" style="border:none;background:none;cursor:pointer;color:red;font-size:1.1rem;" title="Eliminar">✖</button>`;
                             d.querySelector('div').onclick = () => window.viewSession(s);
-                            d.querySelector('.btn-edit-ses').onclick = (e) => {
-                                e.stopPropagation();
-                                window.openSessionEditor(s);
-                            };
+                            d.querySelector('.btn-edit-ses').onclick = (e) => { e.stopPropagation(); window.openSessionEditor(s); };
                             d.querySelector('.btn-del-ses').onclick = (e) => {
                                 e.stopPropagation();
-                                if(confirm("¿Eliminar sesión?")) {
+                                if(confirm('¿Eliminar sesión?')) {
                                     sessions.splice(idx, 1);
                                     localStorage.setItem('biblia_sessions', JSON.stringify(sessions));
                                     renderSessions();
@@ -410,20 +431,60 @@
                     `;
                     const renderClipboards = () => {
                         let draftRefs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
+                        let textsMap = JSON.parse(localStorage.getItem('biblia_draft_clipboard_texts') || '{}');
                         let draftDiv = document.getElementById('draft-clipboard-info');
                         if (draftDiv) {
                             if (draftRefs.length > 0) {
-                                draftDiv.innerHTML = `<div style="background:#fff3cd; padding:10px; border-radius:5px; border-left:4px solid #ffc107; cursor:pointer; font-size:0.9rem;">
-                                    <b style="color:#856404;">📌 Portapapeles en Construcción</b><br>
-                                    <span style="color:#856404;">${draftRefs.length} referencias añadidas. Haz clic para continuar editando o guardar.</span>
-                                </div>`;
+                                const listHtml = draftRefs.map((r, i) => {
+                                    const preview = textsMap[r]
+                                        ? `<span style="color:#555;font-size:0.78rem;display:block;margin-top:1px;">${textsMap[r].length > 80 ? textsMap[r].slice(0,80)+'...' : textsMap[r]}</span>`
+                                        : '';
+                                    return `<div style="padding:4px 0;border-bottom:1px solid rgba(133,100,4,0.15);">`+
+                                        `<div style="display:flex;justify-content:space-between;align-items:flex-start;">`+
+                                        `<span style="font-weight:bold;font-size:0.83rem;">📌 ${r}</span>`+
+                                        `<button data-idx="${i}" class="btn-rm-draft-clip" style="border:none;background:none;cursor:pointer;color:#c0392b;font-size:0.9rem;padding:0 4px;flex-shrink:0;">✖</button></div>${preview}</div>`;
+                                }).join('');
+                                draftDiv.innerHTML =
+                                    `<div style="background:#fff3cd;padding:10px;border-radius:7px;border-left:4px solid #ffc107;font-size:0.9rem;">`+
+                                    `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">`+
+                                    `<b style="color:#856404;">📎 En construcción (${draftRefs.length})</b>`+
+                                    `<div style="display:flex;gap:5px;">`+
+                                    `<button id="btn-copy-draft-clip" style="padding:4px 9px;background:var(--secondary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">📋 Copiar todo</button>`+
+                                    `<button id="btn-edit-draft-clip" style="padding:4px 9px;background:var(--primary);color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">✏️ Guardar</button>`+
+                                    `<button id="btn-clear-draft-clip" style="padding:4px 9px;background:#e74c3c;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.78rem;">🗑 Limpiar</button>`+
+                                    `</div></div><div id="draft-clip-ref-list">${listHtml}</div></div>`;
+                                draftDiv.querySelector('#btn-copy-draft-clip').onclick = () => {
+                                    // Copiar con texto completo si disponible
+                                    const lines = draftRefs.map(r => textsMap[r] || r);
+                                    const text = lines.join('\n\n');
+                                    window.copyTextToClipboard(text).then(() => { if(window.toast) window.toast('📋 Copiado con texto al portapapeles', false); }).catch(() => {});
+                                };
+                                draftDiv.querySelector('#btn-edit-draft-clip').onclick = () => window.openClipboardEditor();
+                                draftDiv.querySelector('#btn-clear-draft-clip').onclick = () => {
+                                    if (confirm('¿Limpiar el borrador de portapapeles?')) {
+                                        localStorage.removeItem('biblia_draft_clipboard_refs');
+                                        localStorage.removeItem('biblia_draft_clipboard_texts');
+                                        renderClipboards();
+                                    }
+                                };
+                                draftDiv.querySelectorAll('.btn-rm-draft-clip').forEach(btn => {
+                                    btn.onclick = (e) => {
+                                        e.stopPropagation();
+                                        const idx = parseInt(btn.dataset.idx);
+                                        const removedRef = draftRefs[idx];
+                                        draftRefs.splice(idx, 1);
+                                        delete textsMap[removedRef];
+                                        localStorage.setItem('biblia_draft_clipboard_refs', JSON.stringify(draftRefs));
+                                        localStorage.setItem('biblia_draft_clipboard_texts', JSON.stringify(textsMap));
+                                        renderClipboards();
+                                    };
+                                });
+
                             } else {
-                                draftDiv.innerHTML = `<div style="background:#f0f7ff; padding:10px; border-radius:5px; border-left:4px solid var(--secondary); cursor:pointer; font-size:0.9rem;">
-                                    <b style="color:var(--primary);">📌 Portapapeles en Construcción</b><br>
-                                    <span style="color:#333;">No hay referencias todavía. Empieza añadiendo versículos o abre el borrador para comenzar.</span>
-                                </div>`;
+                                draftDiv.innerHTML = `<div style="background:#f0f7ff;padding:10px;border-radius:5px;border-left:4px solid var(--secondary);font-size:0.9rem;cursor:pointer;" onclick="window.openClipboardEditor()">`+
+                                    `<b style="color:var(--primary);">📎 Sin borrador activo</b><br>`+
+                                    `<span style="color:#333;">Añade versículos con 📎 mientras lees para crear un portapapeles.</span></div>`;
                             }
-                            draftDiv.onclick = () => window.openClipboardEditor();
                         }
 
                         let clipboards = JSON.parse(localStorage.getItem('biblia_clipboards') || '[]');

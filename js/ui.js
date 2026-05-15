@@ -64,10 +64,99 @@ const VERSE_READ_DELAY = 2200;
             if (floatingBtn) {
                 floatingBtn.textContent = autoReadingActive ? '⏸' : '▶';
                 floatingBtn.classList.toggle('active', autoReadingActive);
-                const showFloating = window.innerWidth <= 768 && trackerBar && trackerBar.style.display !== 'none';
+                // Mostrar siempre que haya tracker activo (tanto móvil como escritorio)
+                const showFloating = trackerBar && trackerBar.style.display !== 'none';
                 floatingBtn.style.display = showFloating ? 'flex' : 'none';
             }
         };
+
+        // ── Lógica del botón flotante: tap = play/pause, long-press = menú opciones ──
+        (function setupFloatingPlayBtn() {
+            const btn = document.getElementById('floating-read-btn');
+            const menu = document.getElementById('floating-play-menu');
+            if (!btn || !menu) return;
+
+            let longPressTimer = null;
+            let menuOpen = false;
+
+            const buildMenu = () => {
+                menu.innerHTML = '';
+
+                // Sección velocidad
+                const tSpeed = document.createElement('div');
+                tSpeed.className = 'fpm-section-title'; tSpeed.textContent = '⏱ Velocidad de lectura';
+                menu.appendChild(tSpeed);
+                Object.entries(AUTO_READING_SPEEDS).forEach(([key, cfg]) => {
+                    const b = document.createElement('button');
+                    b.className = 'fpm-btn' + (key === autoReadingSpeedKey ? ' selected' : '');
+                    b.innerHTML = (key === autoReadingSpeedKey ? '✔ ' : '　') + cfg.label;
+                    b.addEventListener('pointerup', (e) => {
+                        e.stopPropagation();
+                        window.setReadingAutoSpeed(key);
+                        buildMenu(); // refrescar checks
+                    });
+                    menu.appendChild(b);
+                });
+
+                // Divisor
+                const div1 = document.createElement('div'); div1.className = 'fpm-divider';
+                menu.appendChild(div1);
+
+                // Sección voz
+                const tVoice = document.createElement('div');
+                tVoice.className = 'fpm-section-title'; tVoice.textContent = '🔊 Leer en voz alta';
+                menu.appendChild(tVoice);
+                const bVoice = document.createElement('button');
+                bVoice.className = 'fpm-btn' + (speechReadingActive ? ' selected' : '');
+                bVoice.innerHTML = speechReadingActive ? '✔ Detener voz' : '　Iniciar voz';
+                bVoice.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    window.toggleSpeechRead();
+                    closeMenu();
+                });
+                menu.appendChild(bVoice);
+            };
+
+            const openMenu = () => {
+                buildMenu();
+                menu.classList.add('open');
+                menuOpen = true;
+            };
+            const closeMenu = () => {
+                menu.classList.remove('open');
+                menuOpen = false;
+            };
+
+            // Cerrar menú al tocar fuera
+            document.addEventListener('pointerdown', (e) => {
+                if (menuOpen && !menu.contains(e.target) && e.target !== btn) {
+                    closeMenu();
+                }
+            }, { capture: true, passive: true });
+
+            // Long-press: pointerdown → espera 400ms → abre menú
+            btn.addEventListener('pointerdown', (e) => {
+                longPressTimer = setTimeout(() => {
+                    longPressTimer = null;
+                    openMenu();
+                }, 400);
+            });
+
+            // Si suelta antes de 400ms → tap normal (play/pause)
+            btn.addEventListener('pointerup', (e) => {
+                if (longPressTimer !== null) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    if (!menuOpen) window.toggleReadingAutoPlay();
+                }
+            });
+
+            btn.addEventListener('pointercancel', () => {
+                if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+            });
+
+            btn.addEventListener('contextmenu', (e) => e.preventDefault()); // Evitar menú del SO en móvil
+        })();
 
         window.setReadingAutoSpeed = (key) => {
             if (!AUTO_READING_SPEEDS[key]) return;
@@ -353,9 +442,47 @@ const VERSE_READ_DELAY = 2200;
             if (editorContainer) editorContainer.style.display = 'none';
             const nameInp = document.getElementById('new-persp-name');
             const textInp = document.getElementById('new-persp-text');
-            if (nameInp) { nameInp.placeholder = placeholder; nameInp.value = ''; }
+            if (nameInp) { nameInp.placeholder = placeholder || 'Título de la nota'; nameInp.value = ''; }
             if (textInp) textInp.value = '';
+            // Mostrar notas existentes del target para edición
+            const existingDiv = document.getElementById('existing-notes-list');
+            if (existingDiv) {
+                existingDiv.innerHTML = '';
+                let existingNotes = null;
+                if (target && target.type === 'verse') {
+                    const item = currentData.find(x => x.id === target.id);
+                    existingNotes = item && item.perspectives ? item.perspectives : null;
+                } else if (target && target.type && target.type !== 'session_note') {
+                    const t = target.type + '_note';
+                    const item = currentData.find(x => {
+                        if (x.type !== t) return false;
+                        if (t === 'chapter_note') return x.book === target.book && String(x.chapter) === String(target.chapter);
+                        if (t === 'book_note')    return x.book === target.book;
+                        return false;
+                    });
+                    existingNotes = item && item.perspectives ? item.perspectives : null;
+                }
+                if (existingNotes && Object.keys(existingNotes).length > 0) {
+                    const title = document.createElement('div');
+                    title.style.cssText = 'font-size:0.75rem;font-weight:bold;color:var(--primary);margin-bottom:4px;padding-top:6px;';
+                    title.textContent = '✍️ Mis notas guardadas (clic para editar):';
+                    existingDiv.appendChild(title);
+                    Object.entries(existingNotes).forEach(([k, val]) => {
+                        const row = document.createElement('div');
+                        row.style.cssText = 'padding:5px 8px;margin:2px 0;background:#f0f7ff;border-left:3px solid var(--secondary);border-radius:4px;cursor:pointer;font-size:0.8rem;';
+                        row.innerHTML = `<b>${k.replace(/_/g,' ').toUpperCase()}</b>: ${val.length > 60 ? val.slice(0,60)+'...' : val}`;
+                        row.title = 'Clic para cargar y editar esta nota';
+                        row.addEventListener('click', () => {
+                            if (nameInp) nameInp.value = k;
+                            if (textInp) textInp.value = val;
+                            if (editorContainer) editorContainer.style.display = 'flex';
+                        });
+                        existingDiv.appendChild(row);
+                    });
+                }
+            }
         };
+
 
         // ── Tooltip flotante global ────────────────────────────────────────
         const floatTip = document.getElementById('floating-tooltip');
@@ -639,12 +766,33 @@ const VERSE_READ_DELAY = 2200;
             const rangeBar = document.getElementById('range-selector-bar');
             if (rangeBar) { rangeBar.style.display = 'none'; rangeBar.innerHTML = `<span>Versículos del</span><input type="number" id="range-start" style="width:60px;border-radius:5px;border:none;padding:4px;text-align:center;" min="1" placeholder="Ini"><span>al</span><input type="number" id="range-end" style="width:60px;border-radius:5px;border:none;padding:4px;text-align:center;" min="1" placeholder="Fin"><button id="btn-apply-range" style="background:var(--secondary);border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;">Filtrar</button><button id="btn-clear-range" style="background:#e74c3c;border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;font-weight:bold;">✕</button>`; }
 
+            const readingRef = target.type === 'chapter' ? `${target.book} ${target.chapter}` : title;
+
             mainView.innerHTML = `
                 <div class="reading-container">
-                    <h2 style="display:flex; align-items:center; gap:10px;">${title} <button onclick="window.addToDraftSession(${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Añadir a sesión">+</button><button onclick="window.openClipboardEditor(null, ${JSON.stringify(target.type === 'chapter' ? target.book + ' ' + target.chapter : title)})" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;font-size:1.5rem;" title="Crear portapapeles con este objetivo">📎</button></h2>
+                    <h2 id="reading-title-h2" style="display:flex; align-items:center; gap:10px;">${title} </h2>
                     <div id="notes-top"></div>
                     <div id="read-text"></div>
                 </div>`;
+
+            // Agregar botones de sesión y portapapeles al h2 via DOM (evita problemas de escape)
+            const h2Title = document.getElementById('reading-title-h2');
+            if (h2Title) {
+                const h2BtnSes = document.createElement('button');
+                h2BtnSes.textContent = '+';
+                h2BtnSes.title = 'Añadir a sesión';
+                h2BtnSes.style.cssText = 'background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;font-size:1.5rem;';
+                h2BtnSes.addEventListener('click', () => window.addToDraftSession(readingRef));
+                const h2BtnClip = document.createElement('button');
+                h2BtnClip.textContent = '📎';
+                h2BtnClip.title = 'Crear portapapeles con este objetivo';
+                h2BtnClip.style.cssText = 'background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;font-size:1.5rem;';
+                h2BtnClip.addEventListener('click', () => {
+                    window.addToDraftClipboard(readingRef);
+                });
+                h2Title.appendChild(h2BtnSes);
+                h2Title.appendChild(h2BtnClip);
+            }
 
             // Event listeners rango de versículos (delegado para soportar recreación del DOM)
             const trackerBarEvt = document.getElementById('sticky-tracker-bar');
@@ -895,10 +1043,45 @@ const VERSE_READ_DELAY = 2200;
             };
 
             // Observer de lectura activa
+            // Estrategia: marcar el versículo más cercano al borde superior visible (no al centro).
+            // Esto evita saltar versículos al hacer scroll lento.
             const readText = document.getElementById('read-text');
             if (readingObserver) readingObserver.disconnect();
             window.manualHighlightMode = false;
             let currentlyVisibleVerses = new Set();
+            const scrollRoot2 = document.getElementById('scrollable-content');
+
+            const pickActiveVerse = () => {
+                if (!currentlyVisibleVerses.size) return null;
+                // Buscar el primer versículo cuyo top esté en la franja superior (20%-50% de la pantalla)
+                const container = scrollRoot2 || document.documentElement;
+                const containerRect = container.getBoundingClientRect ? container.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+                const containerTop = scrollRoot2 ? containerRect.top : 0;
+                const containerH = scrollRoot2 ? containerRect.height : window.innerHeight;
+                const zoneTop = containerTop + containerH * 0.05;   // 5% desde arriba del contenedor
+                const zoneBot = containerTop + containerH * 0.55;   // 55% desde arriba del contenedor
+
+                let best = null, bestTop = Infinity;
+                currentlyVisibleVerses.forEach(el => {
+                    const rect = el.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    // Preferir el que esté más arriba dentro de la zona
+                    if (midY >= zoneTop && midY <= zoneBot) {
+                        if (rect.top < bestTop) { bestTop = rect.top; best = el; }
+                    }
+                });
+                if (!best) {
+                    // Si ninguno cae en la zona, tomar el más cercano al tope del contenedor
+                    let minDist = Infinity;
+                    currentlyVisibleVerses.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        const dist = Math.abs(rect.top - containerTop);
+                        if (dist < minDist) { minDist = dist; best = el; }
+                    });
+                }
+                return best;
+            };
+
             readingObserver = new IntersectionObserver(es => {
                 if (window.manualHighlightMode) return;
                 if (isTyping) return;
@@ -906,20 +1089,8 @@ const VERSE_READ_DELAY = 2200;
                     if (e.isIntersecting) currentlyVisibleVerses.add(e.target);
                     else { currentlyVisibleVerses.delete(e.target); e.target.classList.remove('active-reading'); }
                 });
-                let activeVerse = null, minDiff = Infinity, centerY = window.innerHeight / 2;
-                let topmostVisibleVerse = null, topmostY = Infinity;
-                currentlyVisibleVerses.forEach(el => {
-                    let rect = el.getBoundingClientRect();
-                    let diff = Math.abs(rect.top + rect.height/2 - centerY);
-                    if (diff < minDiff) { minDiff = diff; activeVerse = el; }
-                    if (rect.top < topmostY) { topmostY = rect.top; topmostVisibleVerse = el; }
-                });
-                const scrollRoot = document.getElementById('scrollable-content');
-                const scrollTop = scrollRoot ? scrollRoot.scrollTop : (window.pageYOffset || document.documentElement.scrollTop || 0);
-                const atBeginning = scrollTop < 100;
-                if (atBeginning && topmostVisibleVerse) {
-                    activeVerse = topmostVisibleVerse;
-                }
+
+                const activeVerse = pickActiveVerse();
 
                 if (currentActiveVerse && currentActiveVerse !== activeVerse) {
                     currentActiveVerse.classList.remove('active-reading');
@@ -948,7 +1119,11 @@ const VERSE_READ_DELAY = 2200;
                         activeReadTimer = null;
                     }
                 }
-            }, { rootMargin: '-30% 0px -50% 0px' }); // Margen matemático: detecta justo el centro de la pantalla
+            }, {
+                root: scrollRoot2 || null,
+                rootMargin: '0px',
+                threshold: 0.1  // El versículo es "visible" en cuanto el 10% esté en pantalla
+            });
 
             // Renderizar versículos con separadores libro/capítulo en vistas multi-capítulo
             const isMultiCap = (target.type !== 'chapter');
@@ -965,9 +1140,28 @@ const VERSE_READ_DELAY = 2200;
                 }
                 // Separador capítulo
                 if (isMultiCap && vChap !== lastChap) {
+                    const chapRef = `${v.book} ${vChap}`;
                     const cd = document.createElement('div');
                     cd.style.cssText = 'color:var(--secondary);font-weight:bold;padding:4px 2px;margin-top:10px;border-bottom:2px solid var(--secondary);margin-bottom:4px; display:flex; align-items:center;';
-                    cd.innerHTML = `<button class="add-to-session-btn" onclick="window.addToDraftSession('${v.book} ${vChap}')" title="Añadir capítulo a sesión" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">+</button><button class="add-to-clipboard-btn" onclick="window.openClipboardEditor(null, '${v.book} ${vChap}')" title="Crear portapapeles con este capítulo" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem; margin-right:5px;">📎</button>Capítulo ${vChap}`;
+                    const cdBtnSes = document.createElement('button');
+                    cdBtnSes.className = 'add-to-session-btn';
+                    cdBtnSes.title = 'Añadir capítulo a sesión';
+                    cdBtnSes.textContent = '+';
+                    cdBtnSes.style.cssText = 'background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem;margin-right:5px;';
+                    cdBtnSes.addEventListener('click', (e) => { e.stopPropagation(); window.addToDraftSession(chapRef); });
+                    cdBtnSes.addEventListener('touchend', (e) => { e.stopPropagation(); window.addToDraftSession(chapRef); }, { passive: false });
+                    const cdBtnClip = document.createElement('button');
+                    cdBtnClip.className = 'add-to-clipboard-btn';
+                    cdBtnClip.title = 'Crear portapapeles con este capítulo';
+                    cdBtnClip.textContent = '📎';
+                    cdBtnClip.style.cssText = 'background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 8px;font-size:1.2rem;margin-right:5px;';
+                    cdBtnClip.addEventListener('click', (e) => { e.stopPropagation(); window.addToDraftClipboard(chapRef); });
+                    cdBtnClip.addEventListener('touchend', (e) => { e.stopPropagation(); window.addToDraftClipboard(chapRef); }, { passive: false });
+                    const cdLabel = document.createElement('span');
+                    cdLabel.textContent = `Capítulo ${vChap}`;
+                    cd.appendChild(cdBtnSes);
+                    cd.appendChild(cdBtnClip);
+                    cd.appendChild(cdLabel);
                     readText.appendChild(cd);
                     lastChap = vChap;
                 }
@@ -1017,12 +1211,55 @@ const VERSE_READ_DELAY = 2200;
                 span.className = 'verse-text-span';
                 span.dataset.ref = `${v.book} ${v.reference}`;
                 span.dataset.version = v.version || '';
-                if (tt) span.dataset.tt = tt;  // tooltip almacenado en data attr
+                span.dataset.verseText = v.text || ''; // para copiar con texto
+                if (tt) span.dataset.tt = tt;
+                // Marcar rosa si ya fue leído
+                const verseFullRef = `${v.book} ${v.reference}`;
+                const readSet = new Set(JSON.parse(localStorage.getItem('biblia_read_verses') || '[]'));
+                if (readSet.has(verseFullRef)) span.classList.add('already-read');
                 const refStr = v.reference || '';
                 const colonIdx = refStr.lastIndexOf(':');
                 const vNum = colonIdx !== -1 ? refStr.substring(colonIdx + 1) : refStr;
                 const clipRef = `${v.book} ${v.reference}`;
-                span.innerHTML = `<button class="add-to-session-btn" onclick="event.stopPropagation(); window.addToDraftSession(${JSON.stringify(`${v.book} ${v.reference}`)})" onpointerup="event.stopPropagation();" title="Añadir a sesión" style="background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">+</button><button class="add-to-clipboard-btn" onclick="event.stopPropagation(); window.openClipboardEditor(null, ${JSON.stringify(clipRef)})" onpointerup="event.stopPropagation();" title="Crear portapapeles con este versículo" style="background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem; vertical-align: baseline;">📎</button><span class="verse-num">${vNum}</span>${window.formatVerseText(v.text)} ${dot}`;
+                const sesRef = `${v.book} ${v.reference}`;
+
+                // Construir botones usando DOM (evita problemas de escape de comillas en onclick inline)
+                const btnSes = document.createElement('button');
+                btnSes.className = 'add-to-session-btn';
+                btnSes.title = 'Añadir a sesión';
+                btnSes.textContent = '+';
+                btnSes.style.cssText = 'background:none;border:none;color:var(--primary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem;vertical-align:baseline;';
+                btnSes.addEventListener('click',        (e) => { e.stopPropagation(); window.addToDraftSession(sesRef); });
+                btnSes.addEventListener('pointerup',    (e) => { e.stopPropagation(); });
+                btnSes.addEventListener('touchend',     (e) => { e.stopPropagation(); window.addToDraftSession(sesRef); }, { passive: false });
+
+                const btnClip = document.createElement('button');
+                btnClip.className = 'add-to-clipboard-btn';
+                btnClip.title = 'Copiar versículo al portapapeles';
+                btnClip.textContent = '📎';
+                btnClip.style.cssText = 'background:none;border:none;color:var(--secondary);font-weight:bold;cursor:pointer;padding:0 4px;font-size:1.1rem;vertical-align:baseline;';
+                const clipHandler = (e) => {
+                    e.stopPropagation();
+                    // Copiar referencia + texto al portapapeles del sistema
+                    const verseTextFull = v.text ? `${clipRef} — ${v.text}` : clipRef;
+                    window.addToDraftClipboard(clipRef, verseTextFull);
+                };
+                btnClip.addEventListener('click', clipHandler);
+                btnClip.addEventListener('pointerup', (e) => { e.stopPropagation(); });
+                btnClip.addEventListener('touchend', clipHandler, { passive: false });
+
+                const verseNumSpan = document.createElement('span');
+                verseNumSpan.className = 'verse-num';
+                verseNumSpan.textContent = vNum;
+
+                span.appendChild(btnSes);
+                span.appendChild(btnClip);
+                span.appendChild(verseNumSpan);
+                // Texto con hashtags (puede contener HTML)
+                const textWrapper = document.createElement('span');
+                textWrapper.innerHTML = window.formatVerseText(v.text) + ' ' + dot;
+                span.appendChild(textWrapper);
+
                 if (tt) {
                     span.addEventListener('mouseenter', window._showFloatTip);
                     span.addEventListener('mousemove', window._positionFloatTip);
@@ -1032,6 +1269,62 @@ const VERSE_READ_DELAY = 2200;
                 readText.appendChild(span);
                 readingObserver.observe(span);
             });
+
+            // ── Memoria de posición de lectura ──────────────────────────────────────
+            // Clave única por contexto (libro, capítulo, grupo, etc.)
+            const posKey = (() => {
+                const t = target;
+                if (t.type === 'chapter')   return `rpos_chapter_${normalizeBookName(t.book)}_${t.chapter}`;
+                if (t.type === 'book')       return `rpos_book_${normalizeBookName(t.book)}`;
+                if (t.type === 'testament')  return `rpos_testament_${t.testament}`;
+                if (t.type === 'category')   return `rpos_category_${t.category}`;
+                if (t.type === 'filter')     return null; // búsquedas no tienen memoria
+                return `rpos_title_${title.replace(/\s+/g,'_').slice(0,40)}`;
+            })();
+
+            const scrollCont = document.getElementById('scrollable-content');
+
+            // Guardar posición cuando globalUpdateTracker actualiza el versículo activo
+            if (posKey) {
+                const _origUpdate = window.globalUpdateTracker;
+                window.globalUpdateTracker = (refStr, version) => {
+                    if (_origUpdate) _origUpdate(refStr, version);
+                    if (refStr) {
+                        try { localStorage.setItem(posKey, refStr); } catch(e) {}
+                    }
+                };
+            }
+
+            // Intentar restaurar posición guardada (tras render)
+            requestAnimationFrame(() => {
+                const sc = scrollCont;
+                if (!sc) return;
+
+                if (posKey) {
+                    const savedRef = localStorage.getItem(posKey);
+                    if (savedRef) {
+                        // Buscar el span cuyo data-ref coincida
+                        const savedEl = readText.querySelector(`[data-ref="${CSS.escape(savedRef)}"]`);
+                        if (savedEl) {
+                            // Pequeño delay para que el layout esté completo
+                            setTimeout(() => {
+                                const scRect = sc.getBoundingClientRect();
+                                const elRect = savedEl.getBoundingClientRect();
+                                const relTop = elRect.top - scRect.top + sc.scrollTop;
+                                const offset = Math.max(0, relTop - scRect.height * 0.15); // 15% desde arriba
+                                sc.scrollTop = offset;
+                                // Resaltar visualmente el versículo restaurado
+                                savedEl.classList.add('active-reading');
+                                currentActiveVerse = savedEl;
+                            }, 80);
+                            return;
+                        }
+                    }
+                }
+                // Sin memoria o no encontrado → ir al inicio
+                sc.scrollTop = 0;
+            });
+
 
             if (target.type === 'chapter') {
                 const p = document.getElementById('tr-prev');
@@ -1050,10 +1343,9 @@ const VERSE_READ_DELAY = 2200;
             if (idx !== -1 && chaps[idx + off]) {
                 let n = chaps[idx + off];
                 viewReading(`${n.b} ${n.c}`, all.filter(x => x.book === n.b && x.chapter === n.c), { type: 'chapter', version: t.version, book: n.b, chapter: n.c });
-                const sc = document.getElementById('scrollable-content');
-                if (sc) sc.scrollTop = 0;
             }
         };
+
 
         window.navTracker = (type, dir) => {
             try {
@@ -1206,17 +1498,26 @@ const VERSE_READ_DELAY = 2200;
             if (window.toast) window.toast("Añadido a la sesión en borrador", false);
         };
 
-        window.addToDraftClipboard = (ref) => {
+        window.addToDraftClipboard = (ref, textFull = '') => {
             if (!ref) return;
             let refs = JSON.parse(localStorage.getItem('biblia_draft_clipboard_refs') || '[]');
+            // Guardar mapa ref→texto para mostrar preview
+            let textsMap = JSON.parse(localStorage.getItem('biblia_draft_clipboard_texts') || '{}');
+            const copyText = textFull || ref;
             if (!refs.includes(ref)) {
                 refs.push(ref);
                 localStorage.setItem('biblia_draft_clipboard_refs', JSON.stringify(refs));
-                if (window.toast) window.toast("Añadido al portapapeles", false);
+                if (textFull) textsMap[ref] = textFull;
+                localStorage.setItem('biblia_draft_clipboard_texts', JSON.stringify(textsMap));
+                window.copyTextToClipboard(copyText).catch(() => {});
+                if (window.toast) window.toast('📎 Añadido al portapapeles y copiado', false);
             } else {
-                if (window.toast) window.toast("Ya existe en el portapapeles", false);
+                // Ya existe pero igualmente copiar al sistema
+                window.copyTextToClipboard(copyText).catch(() => {});
+                if (window.toast) window.toast('📋 Copiado al portapapeles del sistema', false);
             }
         };
+
 
         window.addToDraftClipboardFromView = (ref) => {
             window.openClipboardEditor(null, ref);
@@ -1227,12 +1528,16 @@ const VERSE_READ_DELAY = 2200;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 return navigator.clipboard.writeText(text);
             }
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
+            // Fallback execCommand
+            return new Promise((res, rej) => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;top:-9999px;opacity:0;';
+                document.body.appendChild(ta);
+                ta.focus(); ta.select();
+                try { document.execCommand('copy') ? res() : rej(); } catch(e) { rej(e); }
+                document.body.removeChild(ta);
+            });
         };
 
         window.copyClipboardRefs = async (clipboard) => {
@@ -1260,6 +1565,16 @@ const VERSE_READ_DELAY = 2200;
             `;
 
             const readText = document.getElementById('clipboard-read-text');
+            const btnCopyAll = document.getElementById('btn-copy-clipboard-all');
+            if (btnCopyAll) {
+                btnCopyAll.addEventListener('click', () => {
+                    const text = (clipboard.refs || '').split(/[,;\n]/).map(x => x.trim()).filter(x => x).join('\n');
+                    window.copyTextToClipboard(text)
+                        .then(() => { if(window.toast) window.toast('📋 Referencias copiadas al portapapeles', false); })
+                        .catch(() => { if(window.toast) window.toast('Error al copiar', false); });
+                });
+            }
+
             const verseRefMap = new Map();
             currentData.forEach(x => {
                 if (x.type === 'verse' && x.book && x.reference) {
@@ -1529,24 +1844,35 @@ const VERSE_READ_DELAY = 2200;
             if(!readSet.has(ref)) {
                 readSet.add(ref);
                 localStorage.setItem('biblia_read_verses', JSON.stringify([...readSet]));
-                
+
                 let history = JSON.parse(localStorage.getItem('biblia_history') || '[]');
                 history = history.filter(x => x.ref !== ref);
                 history.unshift({ref: ref, date: new Date().toISOString(), snippet: textStr.substring(0, 50) + '...'});
                 if(history.length > 200) history.pop();
                 localStorage.setItem('biblia_history', JSON.stringify(history));
-                
-                // Si la pestaña actual es books, podemos disparar una actualización visual
+
+                // Aplicar clase rosa al elemento visible en el DOM
+                const readText = document.getElementById('read-text');
+                if (readText) {
+                    const el = readText.querySelector(`[data-ref="${CSS.escape(ref)}"]`);
+                    if (el) el.classList.add('already-read');
+                }
+
+                // Actualizar barra de progreso si está visible
                 let pBar = document.querySelector('#sidebar-content > div:first-child');
                 if (pBar && pBar.innerText.includes('Progreso')) {
                     let totalVerses = currentData.filter(x => x.type === 'verse' && x.text).length;
                     let percent = totalVerses > 0 ? (readSet.size / totalVerses * 100).toFixed(2) : 0;
-                    pBar.querySelector('div > span:nth-child(2)').innerText = percent + '%';
-                    pBar.querySelector('div:nth-child(2) > div').style.width = percent + '%';
-                    pBar.querySelector('div:nth-child(3)').innerText = `${readSet.size} / ${totalVerses} versículos leídos`;
+                    const s2 = pBar.querySelector('div > span:nth-child(2)');
+                    const bar = pBar.querySelector('div:nth-child(2) > div');
+                    const s3 = pBar.querySelector('div:nth-child(3)');
+                    if(s2) s2.innerText = percent + '%';
+                    if(bar) bar.style.width = percent + '%';
+                    if(s3) s3.innerText = `${readSet.size} / ${totalVerses} versículos leídos`;
                 }
             }
         };
+
 
         window.viewReadingHistory = () => {
             pushHistory('viewReadingHistory', []);

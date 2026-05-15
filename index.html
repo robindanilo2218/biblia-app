@@ -62,7 +62,8 @@
 
         <section class="content">
             <div id="sticky-tracker-bar" style="display:none;"></div>
-        <button id="floating-read-btn" title="Leer automático" aria-label="Leer automático" onclick="window.toggleReadingAutoPlay()">▶</button>
+        <button id="floating-read-btn" title="Leer automático / Mantén presionado para opciones" aria-label="Leer automático">▶</button>
+        <div id="floating-play-menu" role="menu" aria-label="Opciones de lectura"></div>
             <div id="range-selector-bar" style="display:none; background:var(--primary); color:white; padding:8px 16px; z-index:58; box-shadow:0 2px 6px rgba(0,0,0,0.2); justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;"></div>
             <div id="scrollable-content">
                 <button class="btn-back" id="btn-back" style="display: none;" title="Regresar">❮</button>
@@ -72,9 +73,10 @@
                 </div>
 
                 <div id="global-editor" class="global-editor" style="display: none;">
+                    <div id="existing-notes-list"></div>
                     <button id="btn-toggle-editor"
                         style="width:100%; padding:10px; border:1px dashed var(--primary); border-radius:8px; background:none; cursor:pointer; font-weight:bold; color:var(--primary);">➕
-                        Gestionar Mis Notas Personales</button>
+                        Añadir / Editar Nota Personal</button>
                     <div id="editor-container" class="editor-container" style="display: none;">
                         <input type="text" id="new-persp-name" placeholder="Título (Ej: Mi Resumen)">
                         <input type="text" id="new-persp-tags" placeholder="Etiquetas (separadas por coma)">
