@@ -194,43 +194,39 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
                 menuOpen = false;
             };
 
-            // Cerrar menú al tocar fuera
+            // ── Cerrar menú al hacer clic fuera ───────────────────────────────────
             document.addEventListener('pointerdown', (e) => {
-                if (menuOpen && !menu.contains(e.target) && e.target !== btn) {
-                    closeMenu();
-                }
+                if (menuOpen && !menu.contains(e.target) && e.target !== btn) closeMenu();
             }, { capture: true, passive: true });
 
-            // ── Long-press: pointerdown → espera 450ms → abre menú ────────────────
-            let pointerDownTime = 0;
-            let longPressFired = false;
-
-            btn.addEventListener('pointerdown', (e) => {
-                longPressFired = false;
-                pointerDownTime = Date.now();
+            // ── Long-press: solo clic izquierdo (button===0) o touch ──────────────
+            // mousedown filtra por botón; pointerdown NO filtra → causaba bugs con clic derecho
+            const startLongPress = () => {
+                clearTimeout(longPressTimer);
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
-                    longPressFired = true;
                     openMenu();
-                }, 450);
-            });
-
-            // Limpiar timer al soltar (sin disparar toggle — eso lo hace 'click')
-            btn.addEventListener('pointerup', () => {
+                }, 700); // 700ms = intención clara de menú, nunca accidental
+            };
+            const cancelLongPress = () => {
                 if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-            });
-            btn.addEventListener('pointercancel', () => {
-                if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+            };
+
+            btn.addEventListener('mousedown',  (e) => { if (e.button === 0) startLongPress(); });
+            btn.addEventListener('touchstart', startLongPress, { passive: true });
+            btn.addEventListener('mouseup',    cancelLongPress);
+            btn.addEventListener('touchend',   cancelLongPress);
+            btn.addEventListener('mouseleave', cancelLongPress); // cancela si arrastra fuera
+
+            // ── Toggle play/pause ─────────────────────────────────────────────────
+            // 'click' solo dispara para botón primario (izquierdo) — confiable en todos los dispositivos
+            btn.addEventListener('click', (e) => {
+                if (menuOpen) return; // el menú está abierto, ignorar clic en el botón
+                window.toggleReadingAutoPlay();
             });
 
-            // ── Tap = click — el evento más confiable en todos los dispositivos ──
-            // Fires después de pointerup Y después de touchend en móvil
-            btn.addEventListener('click', () => {
-                if (longPressFired) { longPressFired = false; return; } // fue long-press → no toggle
-                if (!menuOpen) window.toggleReadingAutoPlay();
-            });
+            btn.addEventListener('contextmenu', (e) => e.preventDefault()); // bloquear menú del SO
 
-            btn.addEventListener('contextmenu', (e) => e.preventDefault());
 
         })();
 
