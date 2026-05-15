@@ -202,14 +202,18 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             }, { capture: true, passive: true });
 
             // Long-press: pointerdown → espera 400ms → abre menú
+            let pointerDownTime = 0;
             btn.addEventListener('pointerdown', (e) => {
+                e.preventDefault(); // Evita que el navegador cancele el evento por scroll en móvil
+                btn.setPointerCapture(e.pointerId);
+                pointerDownTime = Date.now();
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
                     openMenu();
                 }, 400);
             });
 
-            // Si suelta antes de 400ms → tap normal (play/pause)
+            // Suelta antes de 400ms → tap normal (play/pause)
             btn.addEventListener('pointerup', (e) => {
                 if (longPressTimer !== null) {
                     clearTimeout(longPressTimer);
@@ -218,9 +222,16 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
                 }
             });
 
+            // Si el sistema cancela el pointer (scroll, etc.) pero fue un tap rápido → igual toggle
             btn.addEventListener('pointercancel', () => {
-                if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+                if (longPressTimer !== null) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    const elapsed = Date.now() - pointerDownTime;
+                    if (elapsed < 400 && !menuOpen) window.toggleReadingAutoPlay();
+                }
             });
+
 
             btn.addEventListener('contextmenu', (e) => e.preventDefault()); // Evitar menú del SO en móvil
         })();

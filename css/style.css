@@ -286,6 +286,10 @@
             justify-content: center;
             /* Semi-transparente cuando está inactivo */
             opacity: 0.45;
+            /* Crítico para móvil: evita que el browser lo trate como gesto de scroll */
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
             transition: transform 0.2s ease, background 0.2s ease, opacity 0.25s ease;
         }
 
