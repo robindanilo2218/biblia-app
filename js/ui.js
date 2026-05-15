@@ -201,39 +201,37 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
                 }
             }, { capture: true, passive: true });
 
-            // Long-press: pointerdown → espera 400ms → abre menú
+            // ── Long-press: pointerdown → espera 450ms → abre menú ────────────────
             let pointerDownTime = 0;
+            let longPressFired = false;
+
             btn.addEventListener('pointerdown', (e) => {
-                e.preventDefault(); // Evita que el navegador cancele el evento por scroll en móvil
-                btn.setPointerCapture(e.pointerId);
+                longPressFired = false;
                 pointerDownTime = Date.now();
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
+                    longPressFired = true;
                     openMenu();
-                }, 400);
+                }, 450);
             });
 
-            // Suelta antes de 400ms → tap normal (play/pause)
-            btn.addEventListener('pointerup', (e) => {
-                if (longPressTimer !== null) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                    if (!menuOpen) window.toggleReadingAutoPlay();
-                }
+            // Limpiar timer al soltar (sin disparar toggle — eso lo hace 'click')
+            btn.addEventListener('pointerup', () => {
+                if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
             });
-
-            // Si el sistema cancela el pointer (scroll, etc.) pero fue un tap rápido → igual toggle
             btn.addEventListener('pointercancel', () => {
-                if (longPressTimer !== null) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                    const elapsed = Date.now() - pointerDownTime;
-                    if (elapsed < 400 && !menuOpen) window.toggleReadingAutoPlay();
-                }
+                if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
             });
 
+            // ── Tap = click — el evento más confiable en todos los dispositivos ──
+            // Fires después de pointerup Y después de touchend en móvil
+            btn.addEventListener('click', () => {
+                if (longPressFired) { longPressFired = false; return; } // fue long-press → no toggle
+                if (!menuOpen) window.toggleReadingAutoPlay();
+            });
 
-            btn.addEventListener('contextmenu', (e) => e.preventDefault()); // Evitar menú del SO en móvil
+            btn.addEventListener('contextmenu', (e) => e.preventDefault());
+
         })();
 
         window.setReadingAutoSpeed = (key) => {
@@ -268,8 +266,12 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
         };
 
         window.advanceReadingAutoPlay = () => {
-            const allSpans = Array.from(document.querySelectorAll('.verse-text-span'));
+            // Buscar spans SOLO en el contenedor de lectura activo para evitar
+            // mezcla con spans de sesiones/portapapeles que puedan estar en el DOM
+            const readContainer = document.getElementById('read-text') || document.getElementById('scrollable-content');
+            const allSpans = Array.from((readContainer || document).querySelectorAll('.verse-text-span'));
             const visibleSpans = allSpans.filter(span => span.offsetParent !== null);
+
             if (!visibleSpans.length) {
                 return window.stopReadingAutoPlay();
             }
@@ -281,7 +283,6 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
                 if (current.dataset.ref) {
                     const verseText = current.dataset.verseText || current.textContent || '';
                     window.markVerseAsRead(current.dataset.ref, verseText);
-                    current.classList.add('already-read');
                 }
                 if (index >= 0 && index < visibleSpans.length - 1) {
                     next = visibleSpans[index + 1];
@@ -291,13 +292,26 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             }
             visibleSpans.forEach(span => span.classList.remove('active-reading'));
             next.classList.add('active-reading');
-            currentActiveVerse = next; // mantener sincronizado para el observer
-            // Scroll suave: 'nearest' minimiza el desplazamiento y reduce interferencia del observer
-            next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            currentActiveVerse = next;
+
+            // Scroll manual al contenedor scroll para mantener el verso activo
+            // en el cuarto superior de la pantalla (progresivo, nunca salta al inicio)
+            const scrollEl = document.getElementById('scrollable-content');
+            if (scrollEl) {
+                const elRect = next.getBoundingClientRect();
+                const contRect = scrollEl.getBoundingClientRect();
+                // Posición relativa del elemento dentro del contenedor
+                const elTop = elRect.top - contRect.top + scrollEl.scrollTop;
+                // Queremos que el verso quede a un 25% desde el tope del contenedor
+                const targetScrollTop = elTop - contRect.height * 0.25;
+                scrollEl.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+            }
+
             if (window.globalUpdateTracker) window.globalUpdateTracker(next.dataset.ref, next.dataset.version);
             if (autoReadingTimer) clearTimeout(autoReadingTimer);
             autoReadingTimer = setTimeout(window.advanceReadingAutoPlay, autoReadingSpeedValue);
         };
+
 
 
 

@@ -148,6 +148,8 @@
                     sidebar.classList.remove('open');
                     overlay.classList.remove('active');
                 };
+                // Exponer globalmente para que sidebar.js pueda cerrar en móvil
+                window.closeSidebar = closeSidebar;
 
                 btnMenu.addEventListener('click', (e) => {
                     e.stopPropagation(); // Prevenir conflicto con app-title
