@@ -200,32 +200,37 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             }, { capture: true, passive: true });
 
             // ── Long-press: solo clic izquierdo (button===0) o touch ──────────────
-            // mousedown filtra por botón; pointerdown NO filtra → causaba bugs con clic derecho
-            const startLongPress = () => {
+            // IMPORTANTE: stopPropagation en todos los eventos para evitar que
+            // los handlers del contenedor de texto (que pausan el auto-play) se activen
+            // cuando el usuario toca el botón flotante.
+            const startLongPress = (e) => {
+                e.stopPropagation();
                 clearTimeout(longPressTimer);
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
                     openMenu();
-                }, 700); // 700ms = intención clara de menú, nunca accidental
+                }, 700);
             };
-            const cancelLongPress = () => {
+            const cancelLongPress = (e) => {
+                if (e) e.stopPropagation();
                 if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
             };
 
-            btn.addEventListener('mousedown',  (e) => { if (e.button === 0) startLongPress(); });
-            btn.addEventListener('touchstart', startLongPress, { passive: true });
-            btn.addEventListener('mouseup',    cancelLongPress);
-            btn.addEventListener('touchend',   cancelLongPress);
-            btn.addEventListener('mouseleave', cancelLongPress); // cancela si arrastra fuera
+            btn.addEventListener('mousedown',  (e) => { if (e.button === 0) startLongPress(e); else e.stopPropagation(); });
+            btn.addEventListener('touchstart', (e) => startLongPress(e), { passive: true });
+            btn.addEventListener('mouseup',    (e) => cancelLongPress(e));
+            btn.addEventListener('touchend',   (e) => cancelLongPress(e));
+            btn.addEventListener('mouseleave', (e) => cancelLongPress(e));
 
             // ── Toggle play/pause ─────────────────────────────────────────────────
-            // 'click' solo dispara para botón primario (izquierdo) — confiable en todos los dispositivos
             btn.addEventListener('click', (e) => {
-                if (menuOpen) return; // el menú está abierto, ignorar clic en el botón
+                e.stopPropagation(); // evitar que el click llegue a los handlers del contenedor
+                if (menuOpen) return;
                 window.toggleReadingAutoPlay();
             });
 
-            btn.addEventListener('contextmenu', (e) => e.preventDefault()); // bloquear menú del SO
+            btn.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); });
+
 
 
         })();
