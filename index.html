@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-<!DOCTYPE html>
-<html lang="es">
 
 <head>
     <meta charset="UTF-8">
@@ -118,11 +116,37 @@
     <script src="js/editor.js"></script>
     <script src="js/main.js"></script>
     <script>
+        // ── PWA: Install prompt ────────────────────────────────────────────────
+        let _deferredInstallPrompt = null;
+        const installBtn = document.getElementById('install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            _deferredInstallPrompt = e;
+            if (installBtn) installBtn.style.display = 'inline-block';
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (!_deferredInstallPrompt) return;
+                _deferredInstallPrompt.prompt();
+                const { outcome } = await _deferredInstallPrompt.userChoice;
+                _deferredInstallPrompt = null;
+                installBtn.style.display = 'none';
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            if (installBtn) installBtn.style.display = 'none';
+            _deferredInstallPrompt = null;
+        });
+
+        // ── Service Worker ────────────────────────────────────────────────────
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
-                    .catch(err => console.error('Error al registrar Service Worker:', err));
+                    .then(reg => console.log('SW registrado:', reg.scope))
+                    .catch(err => console.error('SW error:', err));
             });
         }
     </script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'biblia-estudio-v5';
+const CACHE_NAME = 'biblia-estudio-v6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -13,7 +13,10 @@ const ASSETS_TO_CACHE = [
     './js/editor.js',
     './js/main.js',
     './manifest.json',
-    './icons/icon.svg'
+    './icons/icon.svg',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
+    './icons/icon-180.png'
 ];
 
 self.addEventListener('install', event => {
