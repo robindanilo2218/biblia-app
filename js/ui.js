@@ -201,10 +201,14 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
 
             // ── Long-press: solo clic izquierdo (button===0) o touch ──────────────
             // IMPORTANTE: stopPropagation en todos los eventos para evitar que
-            // los handlers del contenedor de texto (que pausan el auto-play) se activen
-            // cuando el usuario toca el botón flotante.
+            // los handlers del contenedor de texto (que pausan el auto-play) se activen.
+            // Capturamos el estado en mousedown para evitar race conditions.
+            let wasPlayingOnPress = false;
+
             const startLongPress = (e) => {
                 e.stopPropagation();
+                // Capturar estado ANTES de cualquier otro handler
+                wasPlayingOnPress = autoReadingActive;
                 clearTimeout(longPressTimer);
                 longPressTimer = setTimeout(() => {
                     longPressTimer = null;
@@ -222,14 +226,20 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             btn.addEventListener('touchend',   (e) => cancelLongPress(e));
             btn.addEventListener('mouseleave', (e) => cancelLongPress(e));
 
-            // ── Toggle play/pause ─────────────────────────────────────────────────
+            // ── Toggle play/pause usando el estado capturado en mousedown ─────────
             btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // evitar que el click llegue a los handlers del contenedor
+                e.stopPropagation();
                 if (menuOpen) return;
-                window.toggleReadingAutoPlay();
+                // Usar estado capturado en mousedown para evitar race conditions
+                if (wasPlayingOnPress) {
+                    window.stopReadingAutoPlay();
+                } else {
+                    window.startReadingAutoPlay();
+                }
             });
 
             btn.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); });
+
 
 
 
@@ -329,7 +339,12 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             else window.startReadingAutoPlay();
         };
 
-        const getVisibleVerseSpans = () => Array.from(document.querySelectorAll('.verse-text-span')).filter(span => span.offsetParent !== null);
+        const getVisibleVerseSpans = () => {
+            const readContainer = document.getElementById('read-text') || document.getElementById('scrollable-content');
+            const scope = readContainer || document;
+            return Array.from(scope.querySelectorAll('.verse-text-span')).filter(span => span.offsetParent !== null);
+        };
+
         const getCurrentSpeechIndex = () => {
             const spans = getVisibleVerseSpans();
             const active = document.querySelector('.verse-text-span.active-reading');
@@ -348,12 +363,24 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
             }
             speechRefIndex = index;
             const span = spans[speechRefIndex];
-            const textContent = span.textContent || span.innerText || '';
-            const text = `${span.dataset.ref || ''}. ${textContent.replace(/\s+/g, ' ').trim()}`;
+
+            // Extraer solo el texto del versículo — SIN la referencia numérica para evitar
+            // que el TTS lea "3:16" como "tres dieciséis" o como un horario.
+            // El span.textContent incluye el número de versículo al inicio; lo quitamos.
+            let rawText = span.textContent || span.innerText || '';
+            // El número de versículo (span.verse-num) suele ser los primeros dígitos
+            // Quitamos dígitos iniciales y puntuación antes del texto real
+            rawText = rawText.replace(/^\s*\d+\s*/, '').replace(/\s+/g, ' ').trim();
+
+            // Construir introducción hablada natural (solo al inicio del capítulo o cambio)
+            // Formato: "Juan tres, dieciséis" → mejor omitir ref y solo leer el texto
+            const spokenText = rawText;
+
             if (speechUtterance) {
                 window.speechSynthesis.cancel();
             }
-            speechUtterance = new SpeechSynthesisUtterance(text);
+            speechUtterance = new SpeechSynthesisUtterance(spokenText);
+            speechUtterance.lang = 'es-ES';
             speechUtterance.rate = AUTO_READING_SPEEDS[autoReadingSpeedKey]?.speechRate || 1;
             speechUtterance.onend = () => {
                 const nextIndex = speechRefIndex + 1;
@@ -368,12 +395,31 @@ const VERSE_READ_DELAY = 4000; // coincide con velocidad 'normal'
                 window.stopSpeechRead();
             };
             window.speechSynthesis.speak(speechUtterance);
+
+            // ── Sincronizar remarcado celeste (active-reading) con la voz ────────
             if (span) {
-                document.querySelectorAll('.verse-text-span.selected-verse').forEach(el => el.classList.remove('selected-verse'));
-                span.classList.add('selected-verse');
-                span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Quitar active-reading de todos y ponerlo en el que se está leyendo
+                document.querySelectorAll('.verse-text-span.active-reading').forEach(el => {
+                    if (el !== span) el.classList.remove('active-reading');
+                });
+                span.classList.add('active-reading');
+                currentActiveVerse = span;
+
+                // Scroll suave al contenedor correcto (no scrollIntoView que puede saltar)
+                const scrollEl = document.getElementById('scrollable-content');
+                if (scrollEl) {
+                    const elRect = span.getBoundingClientRect();
+                    const contRect = scrollEl.getBoundingClientRect();
+                    const elTop = elRect.top - contRect.top + scrollEl.scrollTop;
+                    const targetScrollTop = elTop - contRect.height * 0.25;
+                    scrollEl.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+                }
+
+                // Actualizar tracker bar
+                if (window.globalUpdateTracker) window.globalUpdateTracker(span.dataset.ref, span.dataset.version);
             }
         };
+
 
         window.startSpeechRead = () => {
             if (!speechSupported || speechReadingActive) return;
